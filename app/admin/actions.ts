@@ -17,7 +17,7 @@ export async function fetchAdminData() {
 
     return {
       success: true,
-      categories: categoriesRes.data || [],
+      categories: (categoriesRes.data || []).filter((c: any) => c.slug !== "wheel_settings"),
       subcategories: subcategoriesRes.data || [],
       products: productsRes.data || [],
     };

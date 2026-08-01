@@ -43,7 +43,7 @@ function getSubcategoryImage(subcategory: string) {
     "سنسال": "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80",
     "حلق كبس": "/images/WhatsApp Image 2026-07-18 at 11.52.26 PM.jpeg",
     "حلق طويل": "https://images.unsplash.com/photo-1595433707802-6c4a033aa8da?auto=format&fit=crop&w=800&q=80",
-    "خلخال": "https://images.unsplash.com/photo-1548911914-1c5dfa1e5046?auto=format&fit=crop&w=800&q=80",
+    "خلخال": "/images/anklet.png",
     "دبل": "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=800&q=80",
     "أطقم أساور": "/images/WhatsApp Image 2026-07-18 at 11.52.27 PM.jpeg",
     "أساور سحب": "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80",
@@ -58,7 +58,7 @@ function getSubcategoryImage(subcategory: string) {
     "ساعات شبيه ماركة ستاتي": "https://images.unsplash.com/photo-1511381939415-4c0ac7b51760?auto=format&fit=crop&w=800&q=80",
     "ساعات شبيه ماركة رجالي": "https://images.unsplash.com/photo-1519337265831-281ec6cc8514?auto=format&fit=crop&w=800&q=80",
   };
-  return map[subcategory] || "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=800&q=80";
+  return map[subcategory];
 }
 
 type CategoryClientProps = {
@@ -191,8 +191,9 @@ export default function CategoryClient({
           className="no-scrollbar flex gap-1 overflow-x-auto pb-2 pl-8 pr-8"
         >
           {subcategories.map((sub) => {
-            const firstImg = products.find((p) => p.subcategory === sub)?.image || null;
-            const subImg = firstImg || getSubcategoryImage(sub);
+            const curatedImg = getSubcategoryImage(sub);
+            const firstImg = products.find((p) => p.subcategory === sub && p.image && !p.image.includes("placeholder"))?.image || null;
+            const subImg = curatedImg || firstImg || "/images/placeholder.jpg";
             return (
               <button
                 key={sub}

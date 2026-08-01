@@ -80,25 +80,22 @@ const WHEEL_COLORS = [
   "#A9E34B", "#74C0FC",
 ];
 
-const DEFAULT_PRIZES = [
-  { label: 'خصم 5%',   color: '#FDE6EE', probability: 0.50 },
-  { label: 'خصم 10%',  color: '#FBCFE8', probability: 0.30 },
-  { label: 'خصم 15%',  color: '#F9A8D4', probability: 0.12 },
-  { label: 'خصم 20%',  color: '#F472B6', probability: 0.05 },
-  { label: 'خصم 30%',  color: '#EC4899', probability: 0.02 },
-  { label: 'خصم 50%',  color: '#E0457D', probability: 0.01 },
-];
-
 type WheelSegment = { label: string; color: string; probability?: number };
 
 function loadWheelSegments(): WheelSegment[] {
   try {
     const s = localStorage.getItem(WHEEL_KEY);
-    return s ? JSON.parse(s) : DEFAULT_PRIZES;
-  } catch { return DEFAULT_PRIZES; }
+    return s ? JSON.parse(s) : [];
+  } catch { return []; }
 }
+
 function saveWheelSegments(segs: WheelSegment[]) {
   try { localStorage.setItem(WHEEL_KEY, JSON.stringify(segs)); } catch { /* ignore */ }
+  fetch("/api/wheel-segments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ segments: segs }),
+  }).catch((err) => console.error("Error syncing wheel segments to server:", err));
 }
 
 /* ─── Wheel Admin Section ─── */
@@ -112,6 +109,15 @@ function WheelAdminSection() {
   useEffect(() => {
     setMounted(true);
     setSegments(loadWheelSegments());
+    fetch("/api/wheel-segments")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.segments && Array.isArray(data.segments)) {
+          setSegments(data.segments);
+          try { localStorage.setItem(WHEEL_KEY, JSON.stringify(data.segments)); } catch {}
+        }
+      })
+      .catch((err) => console.error("Error loading wheel segments:", err));
   }, []);
 
   const add = () => {

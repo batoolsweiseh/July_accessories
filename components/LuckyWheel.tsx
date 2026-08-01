@@ -4,20 +4,11 @@ import { useRef, useState, useEffect } from "react";
 
 type Segment = { label: string; color: string; textColor?: string; probability?: number };
 
-const PRIZES: Segment[] = [
-  { label: 'خصم 5%',   color: '#FDE6EE', textColor: '#b52b57', probability: 0.50 },
-  { label: 'خصم 10%',  color: '#FBCFE8', textColor: '#b52b57', probability: 0.30 },
-  { label: 'خصم 15%',  color: '#F9A8D4', textColor: '#ffffff', probability: 0.12 },
-  { label: 'خصم 20%',  color: '#F472B6', textColor: '#ffffff', probability: 0.05 },
-  { label: 'خصم 30%',  color: '#EC4899', textColor: '#ffffff', probability: 0.02 },
-  { label: 'خصم 50%',  color: '#E0457D', textColor: '#ffffff', probability: 0.01 },
-];
-
 function spinWheel(prizesList: Segment[]) {
   const totalWeight = prizesList.reduce((sum, p) => sum + (p.probability ?? 0), 0);
   if (totalWeight <= 0) return prizesList[0];
 
-  const rand = Math.random() * totalWeight; // رقم عشوائي بين 0 ومجموع الأوزان
+  const rand = Math.random() * totalWeight;
   let cumulative = 0;
   for (const prize of prizesList) {
     cumulative += prize.probability ?? 0;
@@ -33,9 +24,9 @@ const COOLDOWN_TIME = 48 * 60 * 60 * 1000; // 48 hours
 function loadSegments(): Segment[] {
   try {
     const s = localStorage.getItem(STORAGE_KEY);
-    return s ? JSON.parse(s) : PRIZES;
+    return s ? JSON.parse(s) : [];
   } catch {
-    return PRIZES;
+    return [];
   }
 }
 
@@ -109,7 +100,7 @@ function drawWheel(canvas: HTMLCanvasElement, segments: Segment[], rotation: num
 }
 
 export default function LuckyWheel() {
-  const [segments, setSegments] = useState<Segment[]>(PRIZES);
+  const [segments, setSegments] = useState<Segment[]>([]);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -121,10 +112,22 @@ export default function LuckyWheel() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
 
-  /* تحميل القطاعات من localStorage وحالة الكول داون */
+  /* تحميل القطاعات من السيرفر/localStorage وحالة الكول داون */
   useEffect(() => {
     setMounted(true);
     setSegments(loadSegments());
+
+    fetch("/api/wheel-segments")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.segments && Array.isArray(data.segments)) {
+          setSegments(data.segments);
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data.segments));
+          } catch {}
+        }
+      })
+      .catch((err) => console.error("Error loading wheel segments from server:", err));
 
     const lastSpin = localStorage.getItem(COOLDOWN_KEY);
     if (lastSpin) {
