@@ -11,7 +11,7 @@ export function middleware(request: NextRequest) {
 
   if (url.pathname.startsWith("/admin")) {
     const session = request.cookies.get("admin_session");
-    const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+    const adminPassword = process.env.ADMIN_PASSWORD || "July2026";
 
     if (session?.value === adminPassword) {
       return NextResponse.next();

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 export async function loginAction(formData: FormData) {
   const password = formData.get("password") as string;
   const from = (formData.get("from") as string) || "/admin";
-  const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+  const adminPassword = process.env.ADMIN_PASSWORD || "July2026";
 
   if (password === adminPassword) {
     const cookieStore = cookies();
