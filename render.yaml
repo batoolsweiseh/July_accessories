@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: july-accessories-backend
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SUPABASE_ARTWORKS_BUCKET
+        value: products
+      - key: SUPABASE_PROFILES_BUCKET
+        value: profiles
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: RECAPTCHA_SECRET_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
