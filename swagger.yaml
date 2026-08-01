@@ -1,0 +1,1269 @@
+openapi: 3.0.0
+info:
+  title: July Project Backend API
+  version: 1.1.0
+  description: API documentation for authentication, users, and artworks modules.
+
+servers:
+  - url: http://localhost:3001/api/v1
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Artworks
+  - name: Artists
+  - name: Cart
+  - name: Orders
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        "200":
+          description: Server healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Sign up
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupInput'
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "409":
+          $ref: '#/components/responses/ConflictError'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        "200":
+          description: Login success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /users/profile:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Profile returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserResponse'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+    patch:
+      tags: [Users]
+      summary: Update artist profile or become artist
+      description: Requires an authenticated user. If the current user is not yet an artist, this request upgrades the account to artist and stores the artist profile. If the user is already an artist, it updates the existing artist profile.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BecomeArtistInput'
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Profile updated successfully
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "409":
+          $ref: '#/components/responses/ConflictError'
+
+  /users/profile/image:
+    patch:
+      tags: [Users]
+      summary: Upload or replace artist profile image
+      description: Requires authenticated artist user. Uploads one image file and stores it in Supabase Storage.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProfileImageUploadFormData'
+      responses:
+        "200":
+          description: Profile image updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: تم تحديث الصورة الشخصية بنجاح
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "403":
+          $ref: '#/components/responses/ForbiddenError'
+
+  /users/account:
+    delete:
+      tags: [Users]
+      summary: Delete current user account
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /artworks:
+    get:
+      tags: [Artworks]
+      summary: List artworks
+      parameters:
+        - $ref: '#/components/parameters/CategoryQuery'
+        - $ref: '#/components/parameters/ArtistIdQuery'
+      responses:
+        "200":
+          description: Artworks fetched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Artworks retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      artworks:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ArtworkResponse'
+
+    post:
+      tags: [Artworks]
+      summary: Create artwork
+      description: Requires artist role. Uses multipart/form-data with image files.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateArtworkFormData'
+      responses:
+        "201":
+          description: Artwork created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Artwork created successfully
+                  data:
+                    type: object
+                    properties:
+                      artwork:
+                        $ref: '#/components/schemas/ArtworkResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "403":
+          $ref: '#/components/responses/ForbiddenError'
+
+  /artworks/my-artworks:
+    get:
+      tags: [Artworks]
+      summary: List my artworks
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryQuery'
+      responses:
+        "200":
+          description: Artist artworks fetched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: My artworks retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      artworks:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ArtworkResponse'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "403":
+          $ref: '#/components/responses/ForbiddenError'
+
+  /artworks/{id}:
+    get:
+      tags: [Artworks]
+      summary: Get artwork by id
+      parameters:
+        - $ref: '#/components/parameters/ArtworkIdPath'
+      responses:
+        "200":
+          description: Artwork fetched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Artwork retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      artwork:
+                        $ref: '#/components/schemas/ArtworkResponse'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+    patch:
+      tags: [Artworks]
+      summary: Update artwork
+      description: Requires artist role and artwork ownership. Uses multipart/form-data.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArtworkIdPath'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateArtworkFormData'
+      responses:
+        "200":
+          description: Artwork updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Artwork updated successfully
+                  data:
+                    type: object
+                    properties:
+                      artwork:
+                        $ref: '#/components/schemas/ArtworkResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "403":
+          $ref: '#/components/responses/ForbiddenError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      tags: [Artworks]
+      summary: Soft delete artwork
+      description: Marks artwork as inactive (is_active=false).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArtworkIdPath'
+      responses:
+        "200":
+          description: Artwork soft deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "403":
+          $ref: '#/components/responses/ForbiddenError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+        "409":
+          $ref: '#/components/responses/ConflictError'
+
+  /artists:
+    get:
+      tags: [Artists]
+      summary: List all artists
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Artists fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArtistSummary'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /artists/{id}:
+    get:
+      tags: [Artists]
+      summary: Get artist profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Artist profile fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    $ref: '#/components/schemas/ArtistProfile'
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /artists/{id}/artworks:
+    get:
+      tags: [Artists]
+      summary: Get artworks of a specific artist
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/CategoryQuery'
+      responses:
+        "200":
+          description: Artist artworks fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      artworks:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ArtworkResponse'
+                      totalCount:
+                        type: integer
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "404":
+          $ref: '#/components/responses/NotFoundError'
+
+  /cart/{cartId}:
+    get:
+      tags: [Cart]
+      summary: Get user cart by cartId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cartId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Cart retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+
+  /cart/user/{userId}:
+    get:
+      tags: [Cart]
+      summary: Get user cart by userId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Cart retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+
+  /cart/{cartId}/items:
+    post:
+      tags: [Cart]
+      summary: Add item to cart
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cartId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddToCartInput'
+      responses:
+        "200":
+          description: Item added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+
+  /cart/{cartId}/items/{itemId}:
+    delete:
+      tags: [Cart]
+      summary: Remove item from cart
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cartId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Item removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+
+    patch:
+      tags: [Cart]
+      summary: Update cart item quantity
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cartId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Quantity updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+
+  /orders/{userId}/checkout:
+    post:
+      tags: [Orders]
+      summary: Checkout cart and create orders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutInput'
+      responses:
+        "201":
+          description: Orders created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderResponse'
+
+  /orders/{userId}:
+    get:
+      tags: [Orders]
+      summary: Get orders for a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Orders retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderResponse'
+
+    post:
+      tags: [Orders]
+      summary: Create a manual order (bypass cart)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                artistId:
+                  type: string
+                  format: uuid
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      artwork_id: { type: string, format: uuid }
+                      quantity: { type: integer, minimum: 1 }
+                      price: { type: number }
+                shipping_details:
+                  type: object
+                  properties:
+                    address: { type: string }
+                    city: { type: string }
+                    phone: { type: string }
+                    shipping_fee: { type: number }
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+
+  /orders/{orderId}/status:
+    patch:
+      tags: [Orders]
+      summary: Update order status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, approved, rejected, preparing, shipped, delivered]
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ArtworkIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CategoryQuery:
+      name: category
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+          - لوحات فنية
+          - تطريز فلسطيني
+          - خزف وفخار
+          - خط عربي
+          - تصوير فوتوغرافي
+          - نحت ومجسمات
+    ArtistIdQuery:
+      name: artist_id
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnauthorizedError:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ForbiddenError:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ConflictError:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: Ok Healthy
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          example: Something went wrong
+
+    MessageResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Operation completed successfully
+
+    SignupInput:
+      type: object
+      required: [firstName, lastName, email, password, confirmPassword]
+      properties:
+        firstName:
+          type: string
+          minLength: 2
+          example: Maryam
+        lastName:
+          type: string
+          minLength: 2
+          example: Rw
+        email:
+          type: string
+          format: email
+          example: maryam@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: Password123!
+        confirmPassword:
+          type: string
+          format: password
+          minLength: 8
+          example: Password123!
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: maryam@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: Password123!
+
+    AuthSuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Login successful
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+            user:
+              $ref: '#/components/schemas/UserResponse'
+
+    SocialMediaItem:
+      type: object
+      required: [platform, url]
+      properties:
+        platform:
+          type: string
+          enum: [instagram, facebook, linkedin, pinterest, x]
+        url:
+          type: string
+          format: uri
+
+    BecomeArtistInput:
+      type: object
+      required: [artistName, bio, location, phone]
+      properties:
+        artistName:
+          type: string
+          minLength: 3
+          example: Basmala
+        bio:
+          type: string
+          minLength: 20
+          maxLength: 1000
+        location:
+          type: string
+          minLength: 3
+          maxLength: 255
+          example: Nablus
+        phone:
+          type: string
+          maxLength: 50
+          example: "0591234567"
+        socialMedia:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialMediaItem'
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [user, artist]
+        artistName:
+          type: string
+          nullable: true
+        artistSince:
+          type: string
+          format: date-time
+          nullable: true
+        profileImage:
+          type: string
+          format: uri
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        socialMedia:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialMediaItem'
+
+    ArtworkImage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        alt_text:
+          type: string
+          nullable: true
+        is_featured:
+          type: boolean
+        sort_order:
+          type: integer
+
+    ArtworkArtistInfo:
+      type: object
+      properties:
+        artist_name:
+          type: string
+          nullable: true
+        first_name:
+          type: string
+          nullable: true
+        last_name:
+          type: string
+          nullable: true
+        profile_image:
+          type: string
+          format: uri
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+
+    ArtworkResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum:
+            - لوحات فنية
+            - تطريز فلسطيني
+            - خزف وفخار
+            - خط عربي
+            - تصوير فوتوغرافي
+            - نحت ومجسمات
+        artist_id:
+          type: string
+          format: uuid
+        price:
+          type: number
+        quantity:
+          type: integer
+        is_active:
+          type: boolean
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        users:
+          oneOf:
+            - $ref: '#/components/schemas/ArtworkArtistInfo'
+            - type: array
+              items:
+                $ref: '#/components/schemas/ArtworkArtistInfo'
+        artwork_images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtworkImage'
+
+    CreateArtworkFormData:
+      type: object
+      required: [title, description, category, price, quantity, images]
+      properties:
+        title:
+          type: string
+          minLength: 2
+        description:
+          type: string
+          minLength: 10
+        category:
+          type: string
+          enum:
+            - لوحات فنية
+            - تطريز فلسطيني
+            - خزف وفخار
+            - خط عربي
+            - تصوير فوتوغرافي
+            - نحت ومجسمات
+        price:
+          type: number
+          minimum: 0
+        quantity:
+          type: integer
+          minimum: 0
+        mainImageIndex:
+          type: integer
+          minimum: 0
+          example: 0
+        images:
+          type: array
+          maxItems: 3
+          items:
+            type: string
+            format: binary
+
+    UpdateArtworkFormData:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+        description:
+          type: string
+          minLength: 10
+        category:
+          type: string
+          enum:
+            - لوحات فنية
+            - تطريز فلسطيني
+            - خزف وفخار
+            - خط عربي
+            - تصوير فوتوغرافي
+            - نحت ومجسمات
+        price:
+          type: number
+          minimum: 0
+        quantity:
+          type: integer
+          minimum: 0
+        mainImageIndex:
+          type: integer
+          minimum: 0
+        existingImages:
+          description: Repeat this field for each existing filename to keep.
+          type: array
+          items:
+            type: string
+        imageOrder:
+          description: Repeat values like existing:<filename> or new:<index>.
+          type: array
+          items:
+            type: string
+        images:
+          type: array
+          maxItems: 3
+          items:
+            type: string
+            format: binary
+
+    ProfileImageUploadFormData:
+      type: object
+      required: [image]
+      properties:
+        image:
+          type: string
+          format: binary
+
+    ArtistSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        artist_name:
+          type: string
+          nullable: true
+        artist_since:
+          type: string
+          format: date-time
+          nullable: true
+        profile_image:
+          type: string
+          format: uri
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        role:
+          type: string
+          example: artist
+
+    ArtistProfile:
+      allOf:
+        - $ref: '#/components/schemas/ArtistSummary'
+        - type: object
+          properties:
+            phone:
+              type: string
+              nullable: true
+            social_media:
+              type: array
+              items:
+                $ref: '#/components/schemas/SocialMediaItem'
+            stats:
+              type: object
+              properties:
+                total_artworks:
+                  type: integer
+                  example: 12
+                available_artworks:
+                  type: integer
+                  example: 8
+
+    CartResponse:
+      type: object
+      properties:
+        status: { type: string, example: success }
+        data:
+          type: object
+          properties:
+            cartId: { type: string, format: uuid }
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/CartItem'
+
+    CartItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        quantity: { type: integer }
+        artwork:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            title: { type: string }
+            price: { type: number }
+
+    AddToCartInput:
+      type: object
+      required: [artworkId]
+      properties:
+        artworkId: { type: string, format: uuid }
+        quantity: { type: integer, default: 1 }
+
+    OrderResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        artist_id: { type: string, format: uuid }
+        total_price: { type: number }
+        shipping_fee: { type: number }
+        shipping_address: { type: string }
+        shipping_city: { type: string }
+        shipping_phone: { type: string }
+        status:
+          type: string
+          enum: [pending, approved, rejected, preparing, shipped, delivered]
+        created_at: { type: string, format: date-time }
+
+    CheckoutInput:
+      type: object
+      required: [address, city, phone, shippingFee]
+      properties:
+        address: { type: string }
+        city: { type: string }
+        phone: { type: string }
+        shippingFee: { type: number }
