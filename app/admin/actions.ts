@@ -91,6 +91,7 @@ export async function createProduct(formData: FormData) {
       throw new Error("Failed to insert product: " + insertError.message);
     }
 
+    revalidatePath("/");
     revalidatePath("/category/[slug]", "page");
     revalidatePath("/admin");
     return { success: true };
@@ -127,6 +128,7 @@ export async function deleteProduct(id: string, imageUrl: string | null) {
       }
     }
 
+    revalidatePath("/");
     revalidatePath("/category/[slug]", "page");
     revalidatePath("/admin");
     return { success: true };
@@ -147,6 +149,7 @@ export async function toggleStock(id: string, currentInStock: boolean) {
       throw new Error("Failed to toggle stock status: " + error.message);
     }
 
+    revalidatePath("/");
     revalidatePath("/category/[slug]", "page");
     revalidatePath("/admin");
     return { success: true };
@@ -231,6 +234,7 @@ export async function updateProduct(id: string, formData: FormData) {
       throw new Error("Failed to update product: " + updateError.message);
     }
 
+    revalidatePath("/");
     revalidatePath("/category/[slug]", "page");
     revalidatePath("/admin");
     return { success: true };
