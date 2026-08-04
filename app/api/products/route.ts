@@ -31,9 +31,7 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false })
       .limit(100);
 
-    if (category === "bags") {
-      query = query.eq("category_slug", "bags");
-    } else {
+    if (category && category !== "all") {
       query = query.eq("category_slug", category);
     }
 

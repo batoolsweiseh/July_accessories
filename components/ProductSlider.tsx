@@ -283,6 +283,7 @@ function SectionSlider({
 
 /* ── المكوّن الرئيسي ── */
 export default function ProductSlider() {
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [accessories, setAccessories] = useState<Product[]>([]);
   const [bags, setBags] = useState<Product[]>([]);
   const [sets, setSets] = useState<Product[]>([]);
@@ -292,7 +293,7 @@ export default function ProductSlider() {
   useEffect(() => {
     async function load() {
       try {
-        const fetchCategory = async (cat: string): Promise<Product[]> => {
+        const fetchCategory = async (cat: string, filterTaggedOnly = true): Promise<Product[]> => {
           const res = await fetch(`/api/products?category=${cat}`, { cache: "no-store" });
           const json = await res.json();
           const allProds = (json.data || []).map((p: any) => {
@@ -312,22 +313,26 @@ export default function ProductSlider() {
             };
           });
 
+          if (!filterTaggedOnly) return allProds;
           const tagged = allProds.filter((p: any) => p.isFeatured || p.isNew || p.isTrending);
           return tagged.length > 0 ? tagged : allProds;
         };
 
-        const [accData, bagsData, setsData, watchesData] = await Promise.all([
+        const [allData, accData, bagsData, setsData, watchesData] = await Promise.all([
+          fetchCategory("all", false),
           fetchCategory("accessories"),
           fetchCategory("bags"),
           fetchCategory("sets"),
           fetchCategory("watches"),
         ]);
 
+        setAllProducts(allData);
         setAccessories(accData);
         setBags(bagsData);
         setSets(setsData);
         setWatches(watchesData);
       } catch {
+        setAllProducts([]);
         setAccessories([]);
         setBags([]);
         setSets([]);
@@ -370,6 +375,15 @@ export default function ProductSlider() {
         </div>
       ) : (
         <div className="mx-auto max-w-7xl space-y-8">
+          {/* سلايدر رئيسي موحد يعرض أحدث المنتجات المضافة للمتجر ككل */}
+          {allProducts.length > 0 && (
+            <>
+              <SectionSlider title="NEW IN STORE" titleAr="كل المنتجات المضافة حديثاً" products={allProducts} />
+              <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
+            </>
+          )}
+
+          {/* سلايدرات الفئات المستقلة */}
           {accessories.length > 0 && (
             <>
               <SectionSlider title="ACCESSORIES" titleAr="إكسسوارات" products={accessories} />
