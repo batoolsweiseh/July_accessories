@@ -312,7 +312,8 @@ export default function ProductSlider() {
             };
           });
 
-          return allProds.filter((p: any) => p.isFeatured || p.isNew || p.isTrending);
+          const tagged = allProds.filter((p: any) => p.isFeatured || p.isNew || p.isTrending);
+          return tagged.length > 0 ? tagged : allProds;
         };
 
         const [accData, bagsData, setsData, watchesData] = await Promise.all([
@@ -369,18 +370,6 @@ export default function ProductSlider() {
         </div>
       ) : (
         <div className="mx-auto max-w-7xl space-y-8">
-          {accessories.length > 0 && (
-            <>
-              <SectionSlider title="ACCESSORIES" titleAr="إكسسوارات" products={accessories} />
-              <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
-            </>
-          )}
-          {sets.length > 0 && (
-            <>
-              <SectionSlider title="SETS" titleAr="أطقم إكسسوارات" products={sets} />
-              <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
-            </>
-          )}
           {watches.length > 0 && (
             <>
               <SectionSlider title="WATCHES" titleAr="ساعات" products={watches} />
@@ -388,7 +377,19 @@ export default function ProductSlider() {
             </>
           )}
           {bags.length > 0 && (
-            <SectionSlider title="BAGS" titleAr="شنط" products={bags} />
+            <>
+              <SectionSlider title="BAGS" titleAr="شنط" products={bags} />
+              <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
+            </>
+          )}
+          {accessories.length > 0 && (
+            <>
+              <SectionSlider title="ACCESSORIES" titleAr="إكسسوارات" products={accessories} />
+              <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
+            </>
+          )}
+          {sets.length > 0 && (
+            <SectionSlider title="SETS" titleAr="أطقم إكسسوارات" products={sets} />
           )}
         </div>
       )}
