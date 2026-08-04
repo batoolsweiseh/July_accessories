@@ -15,9 +15,18 @@ export async function fetchAdminData() {
     if (subcategoriesRes.error) throw subcategoriesRes.error;
     if (productsRes.error) throw productsRes.error;
 
+    const categoryOrder = ["accessories", "sets", "bags", "watches"];
+    const sortedCategories = (categoriesRes.data || [])
+      .filter((c: any) => c.slug !== "wheel_settings")
+      .sort((a: any, b: any) => {
+        const idxA = categoryOrder.indexOf(a.slug);
+        const idxB = categoryOrder.indexOf(b.slug);
+        return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+      });
+
     return {
       success: true,
-      categories: (categoriesRes.data || []).filter((c: any) => c.slug !== "wheel_settings"),
+      categories: sortedCategories,
       subcategories: subcategoriesRes.data || [],
       products: productsRes.data || [],
     };
