@@ -837,7 +837,7 @@ export default function AdminPage() {
               {/* ── Form ── */}
               <section
                 ref={formRef}
-                className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6 sticky top-6"
+                className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6 lg:sticky lg:top-6 z-10"
               >
                 <div className="flex items-center justify-between">
                   <h2
