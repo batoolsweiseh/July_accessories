@@ -240,25 +240,6 @@ function SectionSlider({
     trackRef.current?.scrollBy({ left: -getScrollAmount(), behavior: "smooth" });
   };
 
-  const displayProducts = products.length > 0 ? products : [
-    {
-      id: `ph-${title}-1`,
-      name: "سيتم إضافة منتجات قريباً",
-      price: "-- ₪",
-      category: title.toLowerCase(),
-      image: "/product-placeholder.png",
-      inStock: true,
-    },
-    {
-      id: `ph-${title}-2`,
-      name: "سيتم إضافة منتجات قريباً",
-      price: "-- ₪",
-      category: title.toLowerCase(),
-      image: "/product-placeholder.png",
-      inStock: true,
-    }
-  ];
-
   return (
     <div dir="rtl">
       {/* عنوان القسم */}
@@ -285,7 +266,7 @@ function SectionSlider({
           className="flex gap-1 overflow-x-auto pb-2"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {displayProducts.map((p) => (
+          {products.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
         </div>
@@ -328,8 +309,8 @@ export default function ProductSlider() {
             };
           });
 
-          const tagged = allProds.filter((p: any) => p.isFeatured || p.isNew || p.isTrending);
-          return tagged.length > 0 ? tagged : allProds;
+          // إرجاع المنتجات المحددة فقط بـ (مميز / جديد / ترند) المرفوعة على Supabase
+          return allProds.filter((p: any) => p.isFeatured || p.isNew || p.isTrending);
         };
 
         const [accData, bagsData, setsData, watchesData] = await Promise.all([
@@ -372,13 +353,27 @@ export default function ProductSlider() {
         </div>
       ) : (
         <div className="mx-auto max-w-7xl space-y-8">
-          <SectionSlider title="ACCESSORIES" titleAr="إكسسوارات" products={accessories} />
-          <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
-          <SectionSlider title="SETS" titleAr="أطقم إكسسوارات" products={sets} />
-          <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
-          <SectionSlider title="WATCHES" titleAr="ساعات" products={watches} />
-          <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
-          <SectionSlider title="BAGS" titleAr="شنط" products={bags} />
+          {accessories.length > 0 && (
+            <>
+              <SectionSlider title="ACCESSORIES" titleAr="إكسسوارات" products={accessories} />
+              <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
+            </>
+          )}
+          {sets.length > 0 && (
+            <>
+              <SectionSlider title="SETS" titleAr="أطقم إكسسوارات" products={sets} />
+              <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
+            </>
+          )}
+          {watches.length > 0 && (
+            <>
+              <SectionSlider title="WATCHES" titleAr="ساعات" products={watches} />
+              <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
+            </>
+          )}
+          {bags.length > 0 && (
+            <SectionSlider title="BAGS" titleAr="شنط" products={bags} />
+          )}
         </div>
       )}
     </section>
