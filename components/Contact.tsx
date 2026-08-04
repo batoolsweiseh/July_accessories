@@ -13,7 +13,7 @@ export default function Contact() {
         {/* بطاقات التواصل */}
         <div className="mx-auto max-w-2xl flex flex-col gap-5">
           <a
-            href="https://wa.me/96170000000"
+            href="https://wa.me/972597287067"
             target="_blank"
             rel="noopener noreferrer"
             className="group flex items-center gap-5 rounded-2xl border border-steel/20 bg-paper p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-steel/20 hover:shadow-lg hover:shadow-black/10"

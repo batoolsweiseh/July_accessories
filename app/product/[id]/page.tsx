@@ -42,7 +42,7 @@ async function getProductById(id: string): Promise<Product | undefined> {
       fullDesc: cleanDesc,
       specs: [],
       image: data.image_url,
-      whatsapp: data.whatsapp_message || `https://wa.me/972590000000?text=أريد أطلب: ${data.name}`,
+      whatsapp: data.whatsapp_message || `https://wa.me/972597287067?text=أريد أطلب: ${data.name}`,
     };
   } catch (err) {
     console.error("Error fetching product by ID from Supabase:", err);
@@ -71,7 +71,7 @@ async function getAllProducts(): Promise<Product[]> {
         fullDesc: cleanDesc,
         specs: [],
         image: p.image_url,
-        whatsapp: p.whatsapp_message || `https://wa.me/972590000000?text=أريد أطلب: ${p.name}`,
+        whatsapp: p.whatsapp_message || `https://wa.me/972597287067?text=أريد أطلب: ${p.name}`,
       };
     });
   } catch (err) {

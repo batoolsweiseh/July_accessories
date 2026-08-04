@@ -295,24 +295,25 @@ export default function ProductSlider() {
         const fetchCategory = async (cat: string): Promise<Product[]> => {
           const res = await fetch(`/api/products?category=${cat}`, { cache: "no-store" });
           const json = await res.json();
-          return (json.data || [])
-            .map((p: any) => {
-              const desc = p.description || "";
-              const isNew = !!p.is_new || desc.includes("[tag:new]");
-              const isTrending = !!p.is_trending || desc.includes("[tag:trending]");
-              return {
-                id: p.id,
-                name: p.name,
-                price: String(p.price) + " ₪",
-                category: p.category_slug,
-                image: p.image_url || "/product-placeholder.png",
-                isFeatured: !!p.is_featured,
-                inStock: p.in_stock ?? true,
-                isNew,
-                isTrending,
-              };
-            })
-            .filter((p: any) => p.isFeatured || p.isNew || p.isTrending);
+          const allProds = (json.data || []).map((p: any) => {
+            const desc = p.description || "";
+            const isNew = !!p.is_new || desc.includes("[tag:new]");
+            const isTrending = !!p.is_trending || desc.includes("[tag:trending]");
+            return {
+              id: p.id,
+              name: p.name,
+              price: String(p.price) + " ₪",
+              category: p.category_slug,
+              image: p.image_url || "/product-placeholder.png",
+              isFeatured: !!p.is_featured,
+              inStock: p.in_stock ?? true,
+              isNew,
+              isTrending,
+            };
+          });
+
+          const tagged = allProds.filter((p: any) => p.isFeatured || p.isNew || p.isTrending);
+          return tagged.length > 0 ? tagged : allProds;
         };
 
         const [accData, bagsData, setsData, watchesData] = await Promise.all([
@@ -375,11 +376,21 @@ export default function ProductSlider() {
               <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
             </>
           )}
-          <SectionSlider title="SETS" titleAr="أطقم إكسسوارات" products={sets} />
-          <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
-          <SectionSlider title="WATCHES" titleAr="ساعات" products={watches} />
-          <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
-          <SectionSlider title="BAGS" titleAr="شنط" products={bags} />
+          {sets.length > 0 && (
+            <>
+              <SectionSlider title="SETS" titleAr="أطقم إكسسوارات" products={sets} />
+              <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
+            </>
+          )}
+          {watches.length > 0 && (
+            <>
+              <SectionSlider title="WATCHES" titleAr="ساعات" products={watches} />
+              <div className="mx-8 h-px bg-gradient-to-r from-transparent via-black/8 to-transparent" />
+            </>
+          )}
+          {bags.length > 0 && (
+            <SectionSlider title="BAGS" titleAr="شنط" products={bags} />
+          )}
         </div>
       )}
     </section>

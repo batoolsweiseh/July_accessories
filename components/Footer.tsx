@@ -44,7 +44,7 @@ export default function Footer() {
             </h3>
             <div className="space-y-3 text-sm text-charcoal">
               <a
-                href="https://wa.me/96170000000"
+                href="https://wa.me/972597287067"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:text-charcoal transition-colors"
