@@ -356,21 +356,7 @@ export default function ProductSlider() {
   }, []);
 
   return (
-    <section id="product-sliders" className="bg-white py-8 sm:py-14">
-      {/* عنوان القسم الرئيسي */}
-      <div className="mx-auto max-w-7xl mb-6 text-center px-5 sm:px-8">
-        <p className="font-mono text-[9px] tracking-widest text-black/40 uppercase mb-2">
-          — LATEST ARRIVALS —
-        </p>
-        <h2
-          style={{ fontFamily: "'Lalezar', serif" }}
-          className="text-2xl sm:text-4xl md:text-5xl text-black"
-        >
-          أحدث المنتجات
-        </h2>
-        <div className="mx-auto mt-3 h-px w-20 bg-gradient-to-r from-transparent via-[#E0457D]/50 to-transparent" />
-      </div>
-
+    <section id="product-sliders" className="bg-white py-6 sm:py-10">
       {loading ? (
         <div className="mx-auto max-w-7xl space-y-12 px-12 sm:px-16">
           {[0, 1].map((i) => (
