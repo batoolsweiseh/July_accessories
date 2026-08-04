@@ -4,18 +4,18 @@ import Image from "next/image";
 
 const categories = [
   {
+    id: "cat-accessories",
+    label: "إكسسوارات",
+    labelEn: "ACCESSORIES",
+    image: "/images/WhatsApp Image 2026-07-17 at 2.36.41 PM.jpeg",
+    href: "/category/accessories",
+  },
+  {
     id: "cat-bags",
     label: "شنط",
     labelEn: "BAGS",
     image: "/images/bags.jpg",
     href: "/category/bags",
-  },
-  {
-    id: "cat-sets",
-    label: "أطقم إكسسوارات",
-    labelEn: "ACCESSORIES SETS",
-    image: "/images/WhatsApp Image 2026-07-12 at 11.30.42 AM.jpeg",
-    href: "/category/sets",
   },
   {
     id: "cat-watches",
@@ -25,11 +25,11 @@ const categories = [
     href: "/category/watches",
   },
   {
-    id: "cat-accessories",
-    label: "إكسسوارات",
-    labelEn: "ACCESSORIES",
-    image: "/images/WhatsApp Image 2026-07-17 at 2.36.41 PM.jpeg",
-    href: "/category/accessories",
+    id: "cat-sets",
+    label: "أطقم إكسسوارات",
+    labelEn: "ACCESSORIES SETS",
+    image: "/images/WhatsApp Image 2026-07-12 at 11.30.42 AM.jpeg",
+    href: "/category/sets",
   },
 ];
 

@@ -239,11 +239,11 @@ export default function CategoryClient({
 
       {/* ── شبكة المنتجات المفلوترة ── */}
       <section className="mx-auto max-w-7xl px-5 sm:px-8 pt-10 pb-20 sm:pb-28">
-        <div className="grid gap-2 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {filteredProducts.map((product) => (
             <article
               key={product.id}
-              className="group relative mx-auto flex w-full max-w-[110px] sm:max-w-[140px] flex-col overflow-hidden rounded-xl border border-black/[0.08] bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 hover:border-black/20"
+              className="group relative flex w-full flex-col overflow-hidden rounded-xl border border-black/[0.08] bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 hover:border-black/20"
             >
               {/* صورة المنتج */}
               <div className="relative aspect-square w-full overflow-hidden bg-[#FFF3F7] flex items-center justify-center">

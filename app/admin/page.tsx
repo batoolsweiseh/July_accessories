@@ -766,9 +766,9 @@ export default function AdminPage() {
         ) : (
           <>
             {/* ── Stats Bar ── */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Total */}
-              <div className="bg-white border border-slate-200 rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm">
+              <div className="bg-white border border-slate-200 rounded-2xl px-5 py-4 flex items-center gap-4 shadow-sm min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
                   <i className="fa-solid fa-box text-slate-600" />
                 </div>
@@ -833,12 +833,12 @@ export default function AdminPage() {
                 <WheelAdminSection />
 
                 {/* ── Main Grid ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-              {/* ── Form ── */}
-              <section
-                ref={formRef}
-                className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6 sticky top-6"
-              >
+                <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 items-start w-full min-w-0">
+                  {/* ── Form ── */}
+                  <section
+                    ref={formRef}
+                    className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6 lg:sticky lg:top-6 w-full"
+                  >
                 <div className="flex items-center justify-between">
                   <h2
                     style={{ fontFamily: "'Lalezar', serif" }}
@@ -1032,7 +1032,7 @@ export default function AdminPage() {
               </section>
 
               {/* ── Products Table ── */}
-              <section className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+              <section className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col w-full min-w-0">
                 {/* Table Header */}
                 <div className="p-5 border-b border-slate-100 space-y-4">
                   <div className="flex items-center justify-between">
@@ -1052,9 +1052,9 @@ export default function AdminPage() {
                   </div>
 
                   {/* Search + Filter */}
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full min-w-0">
                     {/* Search */}
-                    <div className="relative flex-1">
+                    <div className="relative flex-1 min-w-0">
                       <i className="fa-solid fa-magnifying-glass absolute top-1/2 -translate-y-1/2 right-3.5 text-slate-400 text-sm pointer-events-none" />
                       <input
                         type="text"
@@ -1077,7 +1077,7 @@ export default function AdminPage() {
                     <select
                       value={filterCategory}
                       onChange={(e) => setFilterCategory(e.target.value)}
-                      className="text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white min-w-[160px]"
+                      className="w-full sm:w-auto text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white min-w-0 sm:min-w-[160px]"
                     >
                       <option value="">كل الأقسام</option>
                       {categories.map((cat) => (
@@ -1109,7 +1109,7 @@ export default function AdminPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto min-w-0">
                       <table className="w-full text-right border-collapse">
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500">
