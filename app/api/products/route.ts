@@ -8,16 +8,12 @@ export async function GET(request: Request) {
   const category = searchParams.get("category");
   const ids = searchParams.get("ids");
 
-  if (!category && !ids) {
-    return NextResponse.json({ data: [] });
-  }
-
   try {
     if (ids) {
       const idArray = ids.split(",");
       const { data, error } = await supabaseAdmin
         .from("products")
-        .select("id, name, price, category_slug, image_url, is_featured, in_stock")
+        .select("id, name, price, category_slug, image_url, is_featured, in_stock, description")
         .in("id", idArray);
       if (error) throw error;
       return NextResponse.json({ data: data || [] });
@@ -25,15 +21,11 @@ export async function GET(request: Request) {
 
     let query = supabaseAdmin
       .from("products")
-      .select(
-        "id, name, price, category_slug, image_url, is_featured, in_stock, description"
-      )
+      .select("id, name, price, category_slug, image_url, is_featured, in_stock, description")
       .order("created_at", { ascending: false })
       .limit(100);
 
-    if (category === "bags") {
-      query = query.eq("category_slug", "bags");
-    } else {
+    if (category && category !== "all") {
       query = query.eq("category_slug", category);
     }
 
