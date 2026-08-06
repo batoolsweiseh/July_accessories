@@ -80,14 +80,14 @@ function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <div className="group relative flex-shrink-0 w-[44px] sm:w-[54px] md:w-[64px] rounded-xl overflow-hidden border border-black/10 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/10 hover:border-black/20">
+    <div className="group relative flex-shrink-0 w-[96px] min-w-[96px] sm:w-[112px] sm:min-w-[112px] md:w-[128px] md:min-w-[128px] rounded-xl overflow-hidden border border-black/10 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/10 hover:border-black/20">
       {/* الصورة */}
       <div className="relative aspect-square overflow-hidden bg-gray-50">
         <Image
           src={imgSrc}
           alt={product.name}
           fill
-          sizes="(max-width:640px) 44px, (max-width:768px) 54px, 64px"
+          sizes="(max-width:640px) 96px, (max-width:768px) 112px, 128px"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           onError={() => setImgSrc("/product-placeholder.png")}
           unoptimized={imgSrc.startsWith("http")}
@@ -227,9 +227,9 @@ function SectionSlider({
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const getScrollAmount = () => {
-    if (!trackRef.current) return 236; // 220px + 16px gap fallback
+    if (!trackRef.current) return 152; // approximate card width + gap fallback
     const firstCard = trackRef.current.querySelector(".group");
-    return firstCard ? firstCard.clientWidth + 16 : 236;
+    return firstCard ? firstCard.clientWidth + 16 : 152;
   };
 
   /* في RTL: left يعني للأمام (التالي)، right يعني للخلف (السابق) */
@@ -309,8 +309,8 @@ export default function ProductSlider() {
             };
           });
 
-          // إرجاع المنتجات المحددة فقط بـ (مميز / جديد / ترند) المرفوعة على Supabase
-          return allProds.filter((p: any) => p.isFeatured || p.isNew || p.isTrending);
+          // Show every product from the category so newly added items appear immediately.
+          return allProds;
         };
 
         const [accData, bagsData, setsData, watchesData] = await Promise.all([
@@ -356,7 +356,7 @@ export default function ProductSlider() {
               <div className="h-5 w-18 rounded-lg bg-gray-100 animate-pulse mb-3" />
               <div className="flex gap-2 overflow-hidden">
                 {Array.from({ length: 9 }).map((_, j) => (
-                  <div key={j} className="flex-shrink-0 w-[52px] aspect-square rounded-2xl bg-gray-100 animate-pulse" />
+                  <div key={j} className="flex-shrink-0 w-[96px] sm:w-[112px] md:w-[128px] aspect-square rounded-2xl bg-gray-100 animate-pulse" />
                 ))}
               </div>
             </div>
