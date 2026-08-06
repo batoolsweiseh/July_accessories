@@ -23,6 +23,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ data: data || [] });
     }
 
+    const normalizedCategory = category ? category.trim() : "";
+
     let query = supabaseAdmin
       .from("products")
       .select(
@@ -31,10 +33,10 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false })
       .limit(100);
 
-    if (category === "bags") {
-      query = query.eq("category_slug", "bags");
-    } else {
-      query = query.eq("category_slug", category);
+    // Use case-insensitive partial match so deployed category parameter
+    // still finds products if casing or minor differences exist.
+    if (normalizedCategory) {
+      query = query.ilike("category_slug", `%${normalizedCategory}%`);
     }
 
     const { data, error } = await query;
