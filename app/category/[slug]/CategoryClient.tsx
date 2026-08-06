@@ -78,6 +78,7 @@ export default function CategoryClient({
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [doneId, setDoneId] = useState<string | null>(null);
+  const [page, setPage] = useState<number>(1);
   const filterScrollerRef = useRef<HTMLDivElement | null>(null);
   const { addToCart } = useCart();
 
@@ -130,6 +131,17 @@ export default function CategoryClient({
     selectedSubcategory === ""
       ? products
       : products.filter((p) => p.subcategory === selectedSubcategory);
+
+  const PRODUCTS_PER_PAGE = 12;
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
+  const paginatedProducts = filteredProducts.slice(
+    (page - 1) * PRODUCTS_PER_PAGE,
+    page * PRODUCTS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedSubcategory]);
 
   return (
     <main className="min-h-screen bg-paper" dir="rtl">
@@ -198,7 +210,7 @@ export default function CategoryClient({
               <button
                 key={sub}
                 onClick={() => setSelectedSubcategory(sub === selectedSubcategory ? "" : sub)}
-                className={`group flex w-[80px] min-w-[80px] h-[120px] flex-col items-center justify-between rounded-3xl border border-black/[0.08] bg-white overflow-hidden p-1 text-center transition-all duration-300 hover:border-[#E0457D] ${
+                className={`group flex w-[60px] min-w-[60px] h-[88px] flex-col items-center justify-between rounded-3xl border border-black/[0.08] bg-white overflow-hidden p-1 text-center transition-all duration-300 hover:border-[#E0457D] ${
                   selectedSubcategory === sub ? "border-[#E0457D] shadow-md" : ""
                 }`}
               >
@@ -216,7 +228,7 @@ export default function CategoryClient({
                   )}
                 </div>
                 <div className="mt-1 w-full">
-                  <span className="block truncate text-[8px] sm:text-[9px] font-semibold text-charcoal">{sub}</span>
+                  <span className="block truncate text-[7px] sm:text-[8px] font-semibold text-charcoal">{sub}</span>
                 </div>
               </button>
             );
@@ -239,8 +251,8 @@ export default function CategoryClient({
 
       {/* ── شبكة المنتجات المفلوترة ── */}
       <section className="mx-auto max-w-7xl px-5 sm:px-8 pt-10 pb-20 sm:pb-28">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {filteredProducts.map((product) => (
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8">
+          {paginatedProducts.map((product) => (
             <article
               key={product.id}
               className="group relative flex w-full flex-col overflow-hidden rounded-xl border border-black/[0.08] bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 hover:border-black/20"
@@ -280,12 +292,12 @@ export default function CategoryClient({
               </div>
 
               {/* تفاصيل المنتج */}
-              <div className="flex flex-1 flex-col p-2">
-                <h3 className="font-body text-[9px] font-medium text-charcoal line-clamp-2 leading-tight mb-1">
+              <div className="flex flex-1 flex-col p-0.5">
+                <h3 className="font-body text-[6px] font-medium text-charcoal line-clamp-2 leading-tight mb-1">
                   {product.name}
                 </h3>
-                <div className="mt-auto pt-1.5 border-t border-black/[0.04]">
-                  <span className="block font-mono text-[9px] font-bold text-charcoal mb-1.5">
+                <div className="mt-auto pt-1 border-t border-black/[0.04]">
+                  <span className="block font-mono text-[6px] font-bold text-charcoal mb-1.5">
                     {product.price} ₪
                   </span>
                   <div className="flex items-center justify-between gap-1">
@@ -293,7 +305,7 @@ export default function CategoryClient({
                       type="button"
                       onClick={() => handleBuy(product)}
                       disabled={addingId === product.id}
-                      className={`inline-flex h-7 flex-1 items-center justify-center rounded-lg text-[9px] font-semibold transition-all duration-200 active:scale-95 ${
+                      className={`inline-flex h-4 flex-1 items-center justify-center rounded-lg text-[5px] font-semibold transition-all duration-200 active:scale-95 ${
                         doneId === product.id
                           ? 'bg-green-500 text-white'
                           : 'bg-charcoal text-white hover:bg-neutral-800'
@@ -316,7 +328,7 @@ export default function CategoryClient({
                         e.stopPropagation();
                         toggleFavorite(product.id);
                       }}
-                      className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border transition-all duration-200 ${
+                      className={`inline-flex h-4 w-4 items-center justify-center rounded-lg border transition-all duration-200 ${
                         favoriteIds.includes(product.id)
                           ? 'bg-white text-[#E0457D] border-[#E0457D]'
                           : 'bg-white text-charcoal border-black/10 hover:border-[#E0457D]'
@@ -338,6 +350,44 @@ export default function CategoryClient({
             <p className="text-charcoal/50 text-sm sm:text-base">
               لا توجد منتجات في هذا القسم حالياً.
             </p>
+          </div>
+        )}
+
+        {filteredProducts.length > PRODUCTS_PER_PAGE && (
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
+              className="inline-flex items-center justify-center rounded-full border border-charcoal/20 bg-white px-3 py-2 text-[11px] font-semibold text-charcoal transition hover:bg-charcoal/5 disabled:opacity-40"
+            >
+              السابق
+            </button>
+            {Array.from({ length: totalPages }).map((_, index) => {
+              const pageNumber = index + 1;
+              return (
+                <button
+                  key={pageNumber}
+                  type="button"
+                  onClick={() => setPage(pageNumber)}
+                  className={`inline-flex items-center justify-center rounded-full border px-3 py-2 text-[11px] font-semibold transition ${
+                    pageNumber === page
+                      ? 'border-[#E0457D] bg-[#E0457D] text-white'
+                      : 'border-charcoal/20 bg-white text-charcoal hover:bg-charcoal/5'
+                  }`}
+                >
+                  {pageNumber}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+              className="inline-flex items-center justify-center rounded-full border border-charcoal/20 bg-white px-3 py-2 text-[11px] font-semibold text-charcoal transition hover:bg-charcoal/5 disabled:opacity-40"
+            >
+              التالي
+            </button>
           </div>
         )}
       </section>

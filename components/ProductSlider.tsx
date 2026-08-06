@@ -80,14 +80,14 @@ function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <div className="group relative flex-shrink-0 w-[75px] sm:w-[90px] md:w-[105px] rounded-xl overflow-hidden border border-black/10 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/10 hover:border-black/20">
+    <div className="group relative flex-shrink-0 w-[44px] sm:w-[54px] md:w-[64px] rounded-xl overflow-hidden border border-black/10 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/10 hover:border-black/20">
       {/* الصورة */}
       <div className="relative aspect-square overflow-hidden bg-gray-50">
         <Image
           src={imgSrc}
           alt={product.name}
           fill
-          sizes="(max-width:640px) 75px, (max-width:768px) 90px, 105px"
+          sizes="(max-width:640px) 44px, (max-width:768px) 54px, 64px"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           onError={() => setImgSrc("/product-placeholder.png")}
           unoptimized={imgSrc.startsWith("http")}
@@ -127,14 +127,14 @@ function ProductCard({ product }: { product: Product }) {
         <div className="mt-1.5 flex items-center justify-between gap-1">
           {product.inStock === false ? (
             <>
-              <div className="flex-1 text-center rounded-full bg-slate-200 text-slate-500 text-[8px] font-semibold py-1">
+              <div className="flex-1 text-center rounded-full bg-slate-200 text-slate-500 text-[7px] font-semibold py-1">
                 نفد
               </div>
               <button
                 type="button"
                 onClick={toggleFav}
                 aria-label={isFav ? "إزالة من المفضلة" : "إضافة للمفضلة"}
-                className={`inline-flex h-6 w-6 items-center justify-center rounded-full border transition-all duration-200 ${isFav ? 'bg-white text-[#E0457D] border-[#E0457D]' : 'bg-white text-black border-black/10 hover:border-[#E0457D]'}`}
+                className={`inline-flex h-4.5 w-4.5 items-center justify-center rounded-full border transition-all duration-200 ${isFav ? 'bg-white text-[#E0457D] border-[#E0457D]' : 'bg-white text-black border-black/10 hover:border-[#E0457D]'}`}
               >
                 <svg width="9" height="9" viewBox="0 0 24 24" fill={isFav ? "#E0457D" : "none"} stroke={isFav ? "#E0457D" : "#444"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -147,7 +147,7 @@ function ProductCard({ product }: { product: Product }) {
                 type="button"
                 onClick={handleBuy}
                 disabled={addedState !== "idle"}
-                className={`inline-flex h-7 flex-1 items-center justify-center rounded-lg text-[9px] font-semibold transition-all duration-200 focus:outline-none ${
+                className={`inline-flex h-4 flex-1 items-center justify-center rounded-lg text-[6px] font-semibold transition-all duration-200 focus:outline-none ${
                   addedState === "done"
                     ? "bg-green-500 text-white"
                     : "bg-black text-white hover:bg-neutral-700"
@@ -169,7 +169,7 @@ function ProductCard({ product }: { product: Product }) {
                 type="button"
                 onClick={toggleFav}
                 aria-label={isFav ? "إزالة من المفضلة" : "إضافة للمفضلة"}
-                className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border transition-all duration-200 ${isFav ? 'bg-white text-[#E0457D] border-[#E0457D]' : 'bg-white text-black border-black/10 hover:border-[#E0457D]'}`}
+                className={`inline-flex h-4 w-4 items-center justify-center rounded-lg border transition-all duration-200 ${isFav ? 'bg-white text-[#E0457D] border-[#E0457D]' : 'bg-white text-black border-black/10 hover:border-[#E0457D]'}`}
               >
                 <svg width="9" height="9" viewBox="0 0 24 24" fill={isFav ? "#E0457D" : "none"} stroke={isFav ? "#E0457D" : "#444"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -353,10 +353,10 @@ export default function ProductSlider() {
         <div className="mx-auto max-w-7xl space-y-12 px-12 sm:px-16">
           {[0, 1].map((i) => (
             <div key={i}>
-              <div className="h-8 w-40 rounded-lg bg-gray-100 animate-pulse mb-6" />
-              <div className="flex gap-4 overflow-hidden">
-                {Array.from({ length: 4 }).map((_, j) => (
-                  <div key={j} className="flex-shrink-0 w-[108px] aspect-square rounded-2xl bg-gray-100 animate-pulse" />
+              <div className="h-5 w-18 rounded-lg bg-gray-100 animate-pulse mb-3" />
+              <div className="flex gap-2 overflow-hidden">
+                {Array.from({ length: 9 }).map((_, j) => (
+                  <div key={j} className="flex-shrink-0 w-[52px] aspect-square rounded-2xl bg-gray-100 animate-pulse" />
                 ))}
               </div>
             </div>

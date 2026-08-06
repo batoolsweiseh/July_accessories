@@ -73,24 +73,48 @@ export default async function CategoryPage({
   const categoryTitle = category?.title_ar || fallbackCategory?.title || "";
   const categorySubtitle = category?.title_en || fallbackCategory?.subtitle || "";
 
+  const normalizedSlug = slug.trim().toLowerCase();
+
   // 2. Fetch subcategories from Supabase (use admin to bypass RLS)
-  const { data: dbSubcategories } = await supabaseAdmin
+  const { data: dbSubcategories, error: subcategoriesError } = await supabaseAdmin
     .from("subcategories")
-    .select("id, title_ar")
-    .eq("category_slug", slug);
+    .select("id, title_ar, category_slug")
+    .ilike("category_slug", `%${normalizedSlug}%`);
+
+  if (subcategoriesError) {
+    console.error("Error fetching subcategories from Supabase:", subcategoriesError);
+  }
 
   const subcategories = dbSubcategories && dbSubcategories.length > 0
     ? dbSubcategories.map((s) => s.title_ar)
     : fallbackCategory?.subcategories || [];
 
   // 3. Fetch products from Supabase (use admin to bypass RLS)
-  const { data: dbProducts, error } = await supabaseAdmin
+  let { data: dbProducts, error } = await supabaseAdmin
     .from("products")
     .select("*")
-    .eq("category_slug", slug);
+    .ilike("category_slug", `%${normalizedSlug}%`);
 
   if (error) {
     console.error("Error fetching products from Supabase:", error);
+  }
+
+  if ((!dbProducts || dbProducts.length === 0) && dbSubcategories && dbSubcategories.length > 0) {
+    const subcategoryIds = dbSubcategories.map((s) => s.id);
+    const { data: fallbackProducts, error: fallbackProductsError } = await supabaseAdmin
+      .from("products")
+      .select("*")
+      .in("subcategory_id", subcategoryIds)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (fallbackProductsError) {
+      console.error("Error fetching fallback products from Supabase:", fallbackProductsError);
+    }
+
+    if (fallbackProducts && fallbackProducts.length > 0) {
+      dbProducts = fallbackProducts;
+    }
   }
 
   const productsData = dbProducts || [];
