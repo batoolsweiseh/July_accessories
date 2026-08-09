@@ -39,10 +39,10 @@ function getSubcategoryImage(subcategory: string) {
     "أساور": "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=800&q=80",
     "خاتم شبيه ذهب": "/images/WhatsApp Image 2026-07-18 at 11.52.28 PM.jpeg",
     "خاتم شبيه للذهب": "/images/WhatsApp Image 2026-07-18 at 11.52.28 PM.jpeg",
-    "خاتم ماركة": "https://images.unsplash.com/photo-1540574163026-643ea20ade25?auto=format&fit=crop&w=800&q=80",
-    "سنسال": "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80",
+    "خاتم ماركة": "/images/khatam-markah.png",
+    "سنسال": "/images/sansal.png",
     "حلق كبس": "/images/WhatsApp Image 2026-07-18 at 11.52.26 PM.jpeg",
-    "حلق طويل": "https://images.unsplash.com/photo-1595433707802-6c4a033aa8da?auto=format&fit=crop&w=800&q=80",
+    "حلق طويل": "/images/halq-taweel.png",
     "خلخال": "/images/anklet.png",
     "دبل": "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=800&q=80",
     "أطقم أساور": "/images/WhatsApp Image 2026-07-18 at 11.52.27 PM.jpeg",
@@ -53,10 +53,10 @@ function getSubcategoryImage(subcategory: string) {
     "حقائب صغيرة": "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80",
     "حقائب متوسطة": "/images/medium-bags.png",
     "حقائب كبيرة": "/images/large-bags.jpg",
-    "ساعات ماركة ستاتي": "https://images.unsplash.com/photo-1511381939415-4c0ac7b51760?auto=format&fit=crop&w=800&q=80",
-    "ساعات ماركة رجالي": "https://images.unsplash.com/photo-1519337265831-281ec6cc8514?auto=format&fit=crop&w=800&q=80",
-    "ساعات شبيه ماركة ستاتي": "https://images.unsplash.com/photo-1511381939415-4c0ac7b51760?auto=format&fit=crop&w=800&q=80",
-    "ساعات شبيه ماركة رجالي": "https://images.unsplash.com/photo-1519337265831-281ec6cc8514?auto=format&fit=crop&w=800&q=80",
+    "ساعات ماركة ستاتي": "/images/saat-markah-stati.png",
+    "ساعات ماركة رجالي": "/images/saat-markah-rajali.png",
+    "ساعات شبيه ماركة ستاتي": "/images/saat-stati.png",
+    "ساعات شبيه ماركة رجالي": "/images/saat-rajali.png",
   };
   return map[subcategory];
 }
