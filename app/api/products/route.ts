@@ -2,6 +2,13 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const noCacheHeaders = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+  "Pragma": "no-cache",
+  "Expires": "0",
+};
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -9,7 +16,7 @@ export async function GET(request: Request) {
   const ids = searchParams.get("ids");
 
   if (!category && !ids) {
-    return NextResponse.json({ data: [] });
+    return NextResponse.json({ data: [] }, { headers: noCacheHeaders });
   }
 
   try {
@@ -20,7 +27,7 @@ export async function GET(request: Request) {
         .select("id, name, price, category_slug, image_url, is_featured, in_stock")
         .in("id", idArray);
       if (error) throw error;
-      return NextResponse.json({ data: data || [] });
+      return NextResponse.json({ data: data || [] }, { headers: noCacheHeaders });
     }
 
     const normalizedCategory = category ? category.trim() : "";
@@ -42,9 +49,10 @@ export async function GET(request: Request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return NextResponse.json({ data: data || [] });
+    return NextResponse.json({ data: data || [] }, { headers: noCacheHeaders });
   } catch (error: any) {
     console.error("products API error:", error);
-    return NextResponse.json({ data: [], error: error.message }, { status: 500 });
+    return NextResponse.json({ data: [], error: error.message }, { status: 500, headers: noCacheHeaders });
   }
 }
+
