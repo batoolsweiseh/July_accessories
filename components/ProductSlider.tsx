@@ -309,8 +309,8 @@ export default function ProductSlider() {
             };
           });
 
-          // Show every product from the category so newly added items appear immediately.
-          return allProds;
+          // Only show products marked as Featured (مميز), New (جديد), or Trending (ترند) under Latest Products
+          return allProds.filter((p: Product) => p.isFeatured || p.isNew || p.isTrending);
         };
 
         const [accData, bagsData, setsData, watchesData] = await Promise.all([
