@@ -136,7 +136,7 @@ export default async function CategoryPage({
       name: p.name,
       price: Number(p.price),
       subcategory: subcategoryTitle,
-      image: p.image_url || "/images/placeholder.jpg",
+      image: p.image_url || "/product-placeholder.png",
       isFeatured: !!p.is_featured,
       isNew,
       isTrending,

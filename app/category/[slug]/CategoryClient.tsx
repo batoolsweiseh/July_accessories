@@ -36,7 +36,7 @@ function saveFavorites(ids: string[]) {
 
 function getSubcategoryImage(subcategory: string) {
   const map: Record<string, string> = {
-    "أساور": "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=800&q=80",
+    "أساور": "/images/asawer.png",
     "خاتم شبيه ذهب": "/images/WhatsApp Image 2026-07-18 at 11.52.28 PM.jpeg",
     "خاتم شبيه للذهب": "/images/WhatsApp Image 2026-07-18 at 11.52.28 PM.jpeg",
     "خاتم ماركة": "/images/khatam-markah.png",
@@ -44,12 +44,12 @@ function getSubcategoryImage(subcategory: string) {
     "حلق كبس": "/images/WhatsApp Image 2026-07-18 at 11.52.26 PM.jpeg",
     "حلق طويل": "/images/halq-taweel.png",
     "خلخال": "/images/anklet.png",
-    "دبل": "https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&w=800&q=80",
+    "دبل": "/images/WhatsApp Image 2026-08-16 at 10.49.59 AM.jpeg",
     "أطقم أساور": "/images/WhatsApp Image 2026-07-18 at 11.52.27 PM.jpeg",
     "أساور سحب": "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80",
     "أطقم شبيه الذهب": "https://images.unsplash.com/photo-1548911914-1c5dfa1e5046?auto=format&fit=crop&w=800&q=80",
     "أطقم ماركات": "https://images.unsplash.com/photo-1511376777868-611b54f68947?auto=format&fit=crop&w=800&q=80",
-    "أطقم نواعم": "https://images.unsplash.com/photo-1540574163026-643ea20ade25?auto=format&fit=crop&w=800&q=80",
+    "أطقم نواعم": "/images/atqam-nawaem.png",
     "حقائب صغيرة": "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80",
     "حقائب متوسطة": "/images/medium-bags.png",
     "حقائب كبيرة": "/images/large-bags.jpg",
@@ -205,7 +205,7 @@ export default function CategoryClient({
           {subcategories.map((sub) => {
             const curatedImg = getSubcategoryImage(sub);
             const firstImg = products.find((p) => p.subcategory === sub && p.image && !p.image.includes("placeholder"))?.image || null;
-            const subImg = curatedImg || firstImg || "/images/placeholder.jpg";
+            const subImg = curatedImg || firstImg || "/product-placeholder.png";
             return (
               <button
                 key={sub}
