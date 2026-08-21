@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import ImageCropperModal from "@/components/ImageCropperModal";
 import {
   fetchAdminData,
   createProduct,
@@ -537,6 +538,8 @@ export default function AdminPage() {
   const [isTrending, setIsTrending] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [cropperSrc, setCropperSrc] = useState<string | null>(null);
 
   /* Table filters & pagination */
   const [searchQuery, setSearchQuery] = useState("");
@@ -614,8 +617,18 @@ export default function AdminPage() {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
-      setImagePreviewUrl(URL.createObjectURL(file));
+      const url = URL.createObjectURL(file);
+      setImagePreviewUrl(url);
+      setCropperSrc(url);
+      setCropperOpen(true);
     }
+  };
+
+  /* ── Crop complete handler ── */
+  const handleCropComplete = (croppedFile: File, previewUrl: string) => {
+    setImageFile(croppedFile);
+    setImagePreviewUrl(previewUrl);
+    showToast("تم ضبط وتوسيط صورة المنتج بنجاح ✓", "success");
   };
 
   /* ── Reset Form ── */
@@ -928,7 +941,22 @@ export default function AdminPage() {
                 <form onSubmit={handleSubmit} className="space-y-5">
                   {/* Image Upload */}
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold text-slate-700">صورة المنتج</label>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-slate-700">صورة المنتج</label>
+                      {imagePreviewUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCropperSrc(imagePreviewUrl);
+                            setCropperOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#E0457D] hover:underline"
+                        >
+                          <span>✂️</span>
+                          <span>تحريك / قص الصورة</span>
+                        </button>
+                      )}
+                    </div>
                     <div
                       onClick={() => fileInputRef.current?.click()}
                       className="border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-xl cursor-pointer aspect-video flex flex-col items-center justify-center bg-slate-50 overflow-hidden relative group transition-colors"
@@ -1365,6 +1393,15 @@ export default function AdminPage() {
       </>
     )}
       </div>
+
+      {/* مودال ضبط وتوسيط الصورة */}
+      <ImageCropperModal
+        isOpen={cropperOpen}
+        onClose={() => setCropperOpen(false)}
+        imageSrc={cropperSrc}
+        fileName={imageFile?.name || `${name.trim() || "product"}.jpg`}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   );
 }

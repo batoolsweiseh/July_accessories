@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useCart } from "@/lib/useCart";
+import ImageLightbox from "@/components/ImageLightbox";
+import ColorSelectModal from "@/components/ColorSelectModal";
+import { supportsColorChoice, ProductColor } from "@/lib/productUtils";
 
 /* ── أنواع ── */
 type Product = {
@@ -40,25 +43,48 @@ function ProductCard({ product }: { product: Product }) {
   const [isFav, setIsFav] = useState(false);
   const [imgSrc, setImgSrc] = useState(product.image || "/product-placeholder.png");
   const [addedState, setAddedState] = useState<"idle" | "loading" | "done">("idle");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [colorModalOpen, setColorModalOpen] = useState(false);
   const { addToCart } = useCart();
 
-  const handleBuy = async (e: React.MouseEvent) => {
-    e.preventDefault();
+  const hasColorChoice = supportsColorChoice(product.category);
+
+  const executeAddToCart = async (color?: ProductColor) => {
     if (product.inStock === false) return;
     if (addedState !== "idle") return;
     setAddedState("loading");
-    await addToCart(String(product.id), 1, {
-      id: String(product.id),
-      name: product.name,
-      price: Number(String(product.price).replace(/[^\d.]/g, "")) || 0,
-      image_url: imgSrc,
-      in_stock: true,
-      category_slug: product.category,
-    });
+    await addToCart(
+      String(product.id),
+      1,
+      {
+        id: String(product.id),
+        name: product.name,
+        price: Number(String(product.price).replace(/[^\d.]/g, "")) || 0,
+        image_url: imgSrc,
+        in_stock: true,
+        category_slug: product.category,
+        selectedColor: color,
+      },
+      color
+    );
     setAddedState("done");
-    // فتح درج السلة
     window.dispatchEvent(new Event("july-open-cart"));
     setTimeout(() => setAddedState("idle"), 2000);
+  };
+
+  const handleBuy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (product.inStock === false) return;
+    if (hasColorChoice) {
+      setColorModalOpen(true);
+    } else {
+      executeAddToCart();
+    }
+  };
+
+  const handleColorSelect = (color: ProductColor) => {
+    setColorModalOpen(false);
+    executeAddToCart(color);
   };
 
   /* نحمّل حالة المفضلة عند الـ mount */
@@ -81,41 +107,58 @@ function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <div className="group relative flex-shrink-0 w-[96px] min-w-[96px] sm:w-[112px] sm:min-w-[112px] md:w-[128px] md:min-w-[128px] rounded-xl overflow-hidden border border-black/10 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/10 hover:border-black/20">
-      {/* الصورة */}
-      <div className="relative aspect-square overflow-hidden bg-gray-50">
-        <Image
-          src={imgSrc}
-          alt={product.name}
-          fill
-          sizes="(max-width:640px) 96px, (max-width:768px) 112px, 128px"
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          onError={() => setImgSrc("/product-placeholder.png")}
-          unoptimized={imgSrc.startsWith("http")}
-        />
+    <>
+      <div className="group relative flex-shrink-0 w-[96px] min-w-[96px] sm:w-[112px] sm:min-w-[112px] md:w-[128px] md:min-w-[128px] rounded-xl overflow-hidden border border-black/10 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/10 hover:border-black/20">
+        {/* الصورة */}
+        <div
+          onClick={() => setLightboxOpen(true)}
+          className="relative aspect-square overflow-hidden bg-gray-50 cursor-zoom-in group/img"
+          title="اضغط لتكبير الصورة"
+        >
+          <Image
+            src={imgSrc}
+            alt={product.name}
+            fill
+            sizes="(max-width:640px) 96px, (max-width:768px) 112px, 128px"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={() => setImgSrc("/product-placeholder.png")}
+            unoptimized={imgSrc.startsWith("http")}
+          />
 
-        {/* بادجات المنتج */}
-        <div className="absolute top-1 right-1 flex flex-col gap-1 z-10" dir="rtl">
-          {product.isFeatured && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-amber-900 shadow-lg shadow-amber-200/50 ring-1 ring-white/70">
-              <span className="text-[10px]">★</span>
-              مميز
+          {/* مؤشر التكبير عند التحويم */}
+          <div className="absolute inset-0 bg-black/15 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
+            <span className="bg-white/90 text-black rounded-full p-1 shadow-md">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                <line x1="11" y1="8" x2="11" y2="14" />
+                <line x1="8" y1="11" x2="14" y2="11" />
+              </svg>
             </span>
-          )}
-          {(product.isNew || product.is_new) && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-white via-emerald-200 to-emerald-500 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-emerald-950 shadow-lg shadow-emerald-200/50 ring-1 ring-white/70">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-700 shadow-inner" />
-              جديد
-            </span>
-          )}
-          {product.isTrending && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-white via-rose-200 to-rose-500 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-rose-950 shadow-lg shadow-rose-200/50 ring-1 ring-white/70">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-600 shadow-inner" />
-              ترند
-            </span>
-          )}
+          </div>
+
+          {/* بادجات المنتج */}
+          <div className="absolute top-1 right-1 flex flex-col gap-1 z-10 pointer-events-none" dir="rtl">
+            {product.isFeatured && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-amber-900 shadow-lg shadow-amber-200/50 ring-1 ring-white/70">
+                <span className="text-[10px]">★</span>
+                مميز
+              </span>
+            )}
+            {(product.isNew || product.is_new) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-white via-emerald-200 to-emerald-500 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-emerald-950 shadow-lg shadow-emerald-200/50 ring-1 ring-white/70">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-700 shadow-inner" />
+                جديد
+              </span>
+            )}
+            {product.isTrending && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-white via-rose-200 to-rose-500 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-rose-950 shadow-lg shadow-rose-200/50 ring-1 ring-white/70">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-600 shadow-inner" />
+                ترند
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
       {/* معلومات */}
       <div className="p-1.5" dir="rtl">
@@ -181,8 +224,30 @@ function ProductCard({ product }: { product: Product }) {
         </div>
       </div>
     </div>
-  );
 
+    <ImageLightbox
+      isOpen={lightboxOpen}
+      onClose={() => setLightboxOpen(false)}
+      src={imgSrc}
+      alt={product.name}
+      title={product.name}
+      price={product.price}
+    />
+
+    <ColorSelectModal
+      isOpen={colorModalOpen}
+      onClose={() => setColorModalOpen(false)}
+      product={{
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        image: imgSrc,
+        category: product.category,
+      }}
+      onSelectColor={handleColorSelect}
+    />
+  </>
+);
 }
 
 /* ── زر سهم التنقل ── */

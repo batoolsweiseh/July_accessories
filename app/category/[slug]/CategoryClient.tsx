@@ -4,6 +4,9 @@ import Image from "next/image";
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { useCart } from "@/lib/useCart";
+import ImageLightbox from "@/components/ImageLightbox";
+import ColorSelectModal from "@/components/ColorSelectModal";
+import { supportsColorChoice, ProductColor } from "@/lib/productUtils";
 
 type Product = {
   id: string;
@@ -84,26 +87,60 @@ export default function CategoryClient({
   const [addingId, setAddingId] = useState<string | null>(null);
   const [doneId, setDoneId] = useState<string | null>(null);
   const [page, setPage] = useState<number>(1);
+  const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
+  const [colorSelectProduct, setColorSelectProduct] = useState<Product | null>(null);
   const filterScrollerRef = useRef<HTMLDivElement | null>(null);
   const { addToCart } = useCart();
 
-  const handleBuy = useCallback(async (product: Product) => {
-    if (product.inStock === false) return;
-    if (addingId === product.id) return;
-    setAddingId(product.id);
-    await addToCart(product.id, 1, {
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image_url: product.image || "/product-placeholder.png",
-      in_stock: true,
-      category_slug: product.subcategory,
-    });
-    setAddingId(null);
-    setDoneId(product.id);
-    window.dispatchEvent(new Event("july-open-cart"));
-    setTimeout(() => setDoneId(null), 2000);
-  }, [addToCart, addingId]);
+  const executeAddToCart = useCallback(
+    async (product: Product, color?: ProductColor) => {
+      if (product.inStock === false) return;
+      if (addingId === product.id) return;
+      setAddingId(product.id);
+      await addToCart(
+        product.id,
+        1,
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          image_url: product.image || "/product-placeholder.png",
+          in_stock: true,
+          category_slug: product.subcategory,
+          selectedColor: color,
+        },
+        color
+      );
+      setAddingId(null);
+      setDoneId(product.id);
+      window.dispatchEvent(new Event("july-open-cart"));
+      setTimeout(() => setDoneId(null), 2000);
+    },
+    [addToCart, addingId]
+  );
+
+  const handleBuy = useCallback(
+    (product: Product) => {
+      if (product.inStock === false) return;
+      const hasColorChoice = supportsColorChoice(product.subcategory || categoryTitle);
+      if (hasColorChoice) {
+        setColorSelectProduct(product);
+      } else {
+        executeAddToCart(product);
+      }
+    },
+    [categoryTitle, executeAddToCart]
+  );
+
+  const handleColorSelect = useCallback(
+    (color: ProductColor) => {
+      if (!colorSelectProduct) return;
+      const prod = colorSelectProduct;
+      setColorSelectProduct(null);
+      executeAddToCart(prod, color);
+    },
+    [colorSelectProduct, executeAddToCart]
+  );
 
   useEffect(() => {
     const load = () => {
@@ -264,9 +301,13 @@ export default function CategoryClient({
               className="group relative flex w-full flex-col overflow-hidden rounded-xl border border-black/[0.08] bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 hover:border-black/20"
             >
               {/* صورة المنتج */}
-              <div className="relative aspect-square w-full overflow-hidden bg-[#FFF3F7] flex items-center justify-center">
+              <div
+                onClick={() => setPreviewProduct(product)}
+                className="relative aspect-square w-full overflow-hidden bg-[#FFF3F7] flex items-center justify-center cursor-zoom-in group/img"
+                title="اضغط لتكبير الصورة"
+              >
                 {/* شارات المنتج */}
-                <div className="absolute top-2.5 right-2.5 flex flex-col gap-1 z-10" dir="rtl">
+                <div className="absolute top-2.5 right-2.5 flex flex-col gap-1 z-10 pointer-events-none" dir="rtl">
                   {product.inStock === false && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-neutral-900 text-white px-2 py-0.5 text-[7px] sm:text-[8px] font-bold uppercase tracking-wider shadow-lg">
                       نفدت الكمية
@@ -301,6 +342,19 @@ export default function CategoryClient({
                   loading="lazy"
                   onError={(e) => { (e.target as HTMLImageElement).src = "/product-placeholder.png"; }}
                 />
+
+                {/* مؤشر التكبير عند التحويم */}
+                <div className="absolute inset-0 bg-black/15 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
+                  <span className="bg-white/90 text-black rounded-full p-1.5 shadow-md">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      <line x1="11" y1="8" x2="11" y2="14" />
+                      <line x1="8" y1="11" x2="14" y2="11" />
+                    </svg>
+                  </span>
+                </div>
+
                 <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/[0.03] to-transparent pointer-events-none" />
               </div>
 
@@ -410,6 +464,32 @@ export default function CategoryClient({
           </div>
         )}
       </section>
+
+      <ImageLightbox
+        isOpen={!!previewProduct}
+        onClose={() => setPreviewProduct(null)}
+        src={previewProduct?.image || "/product-placeholder.png"}
+        alt={previewProduct?.name}
+        title={previewProduct?.name}
+        price={previewProduct ? `${previewProduct.price} ₪` : undefined}
+      />
+
+      <ColorSelectModal
+        isOpen={!!colorSelectProduct}
+        onClose={() => setColorSelectProduct(null)}
+        product={
+          colorSelectProduct
+            ? {
+                id: colorSelectProduct.id,
+                name: colorSelectProduct.name,
+                price: colorSelectProduct.price,
+                image: colorSelectProduct.image,
+                category: colorSelectProduct.subcategory,
+              }
+            : null
+        }
+        onSelectColor={handleColorSelect}
+      />
     </main>
   );
 }

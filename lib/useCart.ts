@@ -10,12 +10,15 @@ export type CartProduct = {
   image_url: string | null;
   in_stock: boolean;
   category_slug: string;
+  selectedColor?: "ذهبي" | "فضي" | string;
 };
 
 export type CartItem = {
-  id: string;          // نفس product.id يُستخدم كـ itemId
+  id: string;          // e.g. "prodId" or "prodId-ذهبي"
+  productId: string;   // the base product id for db verification
   quantity: number;
   product: CartProduct;
+  selectedColor?: "ذهبي" | "فضي" | string;
 };
 
 export type Cart = {
@@ -39,6 +42,7 @@ function normalizeProduct(product: unknown): CartProduct {
     image_url: typeof source.image_url === "string" ? source.image_url : null,
     in_stock: source.in_stock !== false,
     category_slug: typeof source.category_slug === "string" ? source.category_slug : "",
+    selectedColor: typeof source.selectedColor === "string" ? source.selectedColor : undefined,
   };
 }
 
@@ -58,12 +62,32 @@ function normalizeCart(value: unknown): Cart {
     const entry = item as Record<string, unknown>;
     const quantity = Number(entry.quantity);
     const safeQuantity = Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1;
+    const prod = normalizeProduct(entry.product);
+    const selectedColor =
+      typeof entry.selectedColor === "string"
+        ? entry.selectedColor
+        : typeof prod.selectedColor === "string"
+        ? prod.selectedColor
+        : undefined;
 
-    return [{
-      id: typeof entry.id === "string" ? entry.id : String(entry.id ?? ""),
-      quantity: safeQuantity,
-      product: normalizeProduct(entry.product),
-    }];
+    const id = typeof entry.id === "string" ? entry.id : String(entry.id ?? "");
+    const productId =
+      typeof entry.productId === "string"
+        ? entry.productId
+        : prod.id || id.split("-")[0] || id;
+
+    return [
+      {
+        id,
+        productId,
+        quantity: safeQuantity,
+        product: {
+          ...prod,
+          selectedColor,
+        },
+        selectedColor,
+      },
+    ];
   });
 
   return {
@@ -115,7 +139,9 @@ export function useCart() {
     if (current.items.length === 0) return;
 
     try {
-      const ids = current.items.map((i) => i.id).join(",");
+      const ids = Array.from(
+        new Set(current.items.map((i) => i.productId || i.id.split("-")[0]))
+      ).join(",");
       const res = await fetch(`/api/products?ids=${ids}`, { cache: "no-store" });
       if (!res.ok) return;
       const json = await res.json();
@@ -123,7 +149,10 @@ export function useCart() {
         (json.data || []).map((p: { id: string | number }) => String(p.id))
       );
 
-      const cleanedItems = current.items.filter((i) => validIds.has(i.id));
+      const cleanedItems = current.items.filter((i) => {
+        const pId = i.productId || i.id.split("-")[0];
+        return validIds.has(pId);
+      });
       if (cleanedItems.length !== current.items.length) {
         const newCart: Cart = { ...current, items: cleanedItems };
         saveCart(newCart);
@@ -151,16 +180,27 @@ export function useCart() {
     0
   );
 
-  /* ── إضافة منتج (يتطلب بيانات المنتج) ── */
+  /* ── إضافة منتج (يتطلب بيانات المنتج مع اللون الاختياري) ── */
   const addToCart = useCallback(
-    async (productId: string | number, quantity = 1, productData?: Partial<CartProduct>) => {
+    async (
+      productId: string | number,
+      quantity = 1,
+      productData?: Partial<CartProduct>,
+      selectedColor?: "ذهبي" | "فضي" | string
+    ) => {
       setLoading(true);
       try {
-        const normalizedId = String(productId);
+        const normalizedBaseId = String(productId);
+        const color = selectedColor || productData?.selectedColor;
+        const cartItemId = color ? `${normalizedBaseId}-${color}` : normalizedBaseId;
+
         // إذا ما في بيانات مباشرة، نجيبها من الـ API
-        let product: CartProduct | null = productData ? ({ ...productData, id: normalizedId } as CartProduct) : null;
+        let product: CartProduct | null = productData
+          ? ({ ...productData, id: normalizedBaseId, selectedColor: color } as CartProduct)
+          : null;
+
         if (!product || !product.name) {
-          const res = await fetch(`/api/products?ids=${normalizedId}`);
+          const res = await fetch(`/api/products?ids=${normalizedBaseId}`);
           const json = await res.json();
           const p = (json.data || [])[0];
           if (!p) throw new Error("المنتج غير موجود");
@@ -171,7 +211,10 @@ export function useCart() {
             image_url: p.image_url || null,
             in_stock: p.in_stock ?? true,
             category_slug: p.category_slug || "",
+            selectedColor: color,
           };
+        } else {
+          product.selectedColor = color;
         }
 
         if (!product || product.in_stock === false) {
@@ -180,14 +223,25 @@ export function useCart() {
         }
 
         const current = readCart();
-        const existing = current.items.find((i) => i.id === normalizedId);
+        const existing = current.items.find((i) => i.id === cartItemId);
 
         let newItems: CartItem[];
         if (existing) {
-          // إذا كان المنتج مضافاً مسبقاً في السلة لا نزيد العدد أو نضاعفه
-          newItems = current.items;
+          // إذا كان المنتج مضافاً مسبقاً بنفس اللون، نزيد الكمية
+          newItems = current.items.map((i) =>
+            i.id === cartItemId ? { ...i, quantity: i.quantity + quantity } : i
+          );
         } else {
-          newItems = [...current.items, { id: normalizedId, quantity: Math.max(1, quantity), product }];
+          newItems = [
+            ...current.items,
+            {
+              id: cartItemId,
+              productId: normalizedBaseId,
+              quantity: Math.max(1, quantity),
+              product,
+              selectedColor: color,
+            },
+          ];
         }
 
         const newCart: Cart = { ...current, items: newItems };

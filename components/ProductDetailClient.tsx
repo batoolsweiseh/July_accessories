@@ -4,6 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/lib/useCart";
+import ImageLightbox from "@/components/ImageLightbox";
+import { supportsColorChoice, ProductColor } from "@/lib/productUtils";
 
 type Product = {
   id: number | string;
@@ -22,21 +24,31 @@ type Product = {
 export default function ProductDetailClient({ product }: { product: Product }) {
   const [adding, setAdding] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [selectedColor, setSelectedColor] = useState<ProductColor>("ذهبي");
   const { addToCart } = useCart();
+
+  const hasColorChoice = supportsColorChoice(product.category);
 
   const handleAddToCart = async () => {
     if (product.inStock === false) return;
     setAdding(true);
     try {
       const numericPrice = parseFloat(product.price.replace(/[^\d.]/g, ""));
-      await addToCart(product.id, 1, {
-        id: String(product.id),
-        name: product.name,
-        price: isNaN(numericPrice) ? 0 : numericPrice,
-        image_url: product.image || null,
-        category_slug: product.category,
-        in_stock: true,
-      });
+      const colorToSave = hasColorChoice ? selectedColor : undefined;
+      await addToCart(
+        product.id,
+        1,
+        {
+          id: String(product.id),
+          name: product.name,
+          price: isNaN(numericPrice) ? 0 : numericPrice,
+          image_url: product.image || null,
+          category_slug: product.category,
+          in_stock: true,
+          selectedColor: colorToSave,
+        },
+        colorToSave
+      );
       // Open the cart drawer
       window.dispatchEvent(new Event("july-open-cart"));
     } catch (err) {
@@ -171,6 +183,46 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               </div>
             )}
 
+            {/* اختيار اللون (ذهبي / فضي) */}
+            {hasColorChoice && (
+              <div className="mb-8 rounded-2xl border border-steel/20 bg-paper-2 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-bold text-charcoal flex items-center gap-1.5">
+                    <span>اختر اللون:</span>
+                    <span className="text-[#E0457D] font-extrabold">{selectedColor}</span>
+                  </label>
+                  <span className="text-[11px] text-charcoal/50">متوفر بلونين</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedColor("ذهبي")}
+                    className={`flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border-2 transition-all duration-200 font-bold text-sm ${
+                      selectedColor === "ذهبي"
+                        ? "border-amber-500 bg-amber-50/90 text-amber-950 shadow-md scale-[1.02]"
+                        : "border-steel/20 bg-white text-charcoal hover:border-steel/40"
+                    }`}
+                  >
+                    <span className="w-5 h-5 rounded-full bg-gradient-to-tr from-amber-600 via-amber-400 to-amber-200 border border-amber-600/40 shadow-sm inline-block" />
+                    <span>ذهبي (Gold)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedColor("فضي")}
+                    className={`flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border-2 transition-all duration-200 font-bold text-sm ${
+                      selectedColor === "فضي"
+                        ? "border-slate-500 bg-slate-100 text-slate-900 shadow-md scale-[1.02]"
+                        : "border-steel/20 bg-white text-charcoal hover:border-steel/40"
+                    }`}
+                  >
+                    <span className="w-5 h-5 rounded-full bg-gradient-to-tr from-slate-400 via-slate-200 to-white border border-slate-400/40 shadow-sm inline-block" />
+                    <span>فضي (Silver)</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* مميزات ستانلس */}
             <div className="mb-8 flex flex-wrap gap-2">
               {["ضد الصدأ", "ضد الماء", "ضد العرق", "آمن على البشرة"].map((tag) => (
@@ -216,35 +268,14 @@ export default function ProductDetailClient({ product }: { product: Product }) {
       </div>
 
       {/* Lightbox - تكبير الصورة */}
-      {lightboxOpen && product.image && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-          onClick={() => setLightboxOpen(false)}
-        >
-          <div
-            className="relative max-w-3xl w-full max-h-[90vh] aspect-square rounded-3xl overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              className="object-contain bg-white"
-              sizes="(max-width: 768px) 100vw, 768px"
-            />
-            <button
-              onClick={() => setLightboxOpen(false)}
-              className="absolute top-4 left-4 bg-black/60 hover:bg-black/80 text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors"
-              aria-label="إغلاق"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+      <ImageLightbox
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        src={product.image || ""}
+        alt={product.name}
+        title={product.name}
+        price={product.price}
+      />
     </main>
   );
 }

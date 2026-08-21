@@ -22,7 +22,7 @@ const REGIONS = {
   },
   "داخل": {
     label: "الداخل",
-    deliveryFee: 50,
+    deliveryFee: 70,
     flag: "🟢",
     placeholderCity: "مثال: الناصرة، حيفا، أم الفحم، طمرة، عكا...",
   },
@@ -384,12 +384,16 @@ function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
     setSubmittingOrder(true);
 
     try {
-      const mappedItems = items.map((item) => ({
-        id: item.product.id,
-        name: item.product.name,
-        price: item.product.price,
-        quantity: item.quantity,
-      }));
+      const mappedItems = items.map((item) => {
+        const color = item.selectedColor || item.product.selectedColor;
+        const displayName = color ? `${item.product.name} [اللون: ${color}]` : item.product.name;
+        return {
+          id: item.productId || item.product.id || item.id,
+          name: displayName,
+          price: item.product.price,
+          quantity: item.quantity,
+        };
+      });
 
       const deliveryFee = data.deliveryFee || (data.region ? REGIONS[data.region].deliveryFee : 0);
       const regionLabel = data.region ? REGIONS[data.region].label : "";
@@ -596,9 +600,23 @@ function CartItemRow({
         {/* التفاصيل */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-semibold text-black leading-snug line-clamp-2">
-              {item.product.name}
-            </p>
+            <div>
+              <p className="text-sm font-semibold text-black leading-snug line-clamp-2">
+                {item.product.name}
+              </p>
+              {(item.selectedColor || item.product.selectedColor) && (
+                <span
+                  className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    (item.selectedColor || item.product.selectedColor) === "ذهبي"
+                      ? "bg-amber-100 text-amber-950 border border-amber-300 shadow-sm"
+                      : "bg-slate-100 text-slate-900 border border-slate-300 shadow-sm"
+                  }`}
+                >
+                  <span>{(item.selectedColor || item.product.selectedColor) === "ذهبي" ? "🪙" : "⚪"}</span>
+                  <span>اللون: {item.selectedColor || item.product.selectedColor}</span>
+                </span>
+              )}
+            </div>
             <button
               type="button"
               disabled={loading}
