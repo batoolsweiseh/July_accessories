@@ -183,11 +183,10 @@ export function useCart() {
 
         let newItems: CartItem[];
         if (existing) {
-          newItems = current.items.map((i) =>
-            i.id === normalizedId ? { ...i, quantity: i.quantity + quantity } : i
-          );
+          // إذا كان المنتج مضافاً مسبقاً في السلة لا نزيد العدد أو نضاعفه
+          newItems = current.items;
         } else {
-          newItems = [...current.items, { id: normalizedId, quantity, product }];
+          newItems = [...current.items, { id: normalizedId, quantity: Math.max(1, quantity), product }];
         }
 
         const newCart: Cart = { ...current, items: newItems };
