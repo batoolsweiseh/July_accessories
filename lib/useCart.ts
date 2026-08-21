@@ -10,15 +10,15 @@ export type CartProduct = {
   image_url: string | null;
   in_stock: boolean;
   category_slug: string;
-  selectedColor?: "ذهبي" | "فضي" | string;
+  selectedColor?: string;
 };
 
 export type CartItem = {
-  id: string;          // e.g. "prodId" or "prodId-ذهبي"
-  productId: string;   // the base product id for db verification
+  id: string;
+  productId: string;
   quantity: number;
   product: CartProduct;
-  selectedColor?: "ذهبي" | "فضي" | string;
+  selectedColor?: string;
 };
 
 export type Cart = {
@@ -163,9 +163,9 @@ export function useCart() {
 
   useEffect(() => {
     syncCart();
-    validateCartItems();                                      // تحقق فوري عند التحميل
+    validateCartItems();
     window.addEventListener("july-cart-changed", syncCart);
-    window.addEventListener("focus", validateCartItems);      // تحقق عند الرجوع للتاب
+    window.addEventListener("focus", validateCartItems);
     return () => {
       window.removeEventListener("july-cart-changed", syncCart);
       window.removeEventListener("focus", validateCartItems);
@@ -173,20 +173,20 @@ export function useCart() {
   }, [syncCart, validateCartItems]);
 
   const items = cart.items ?? [];
-  const totalItems = items.length; // عدد المنتجات المختلفة في السلة
-  const totalQuantity = items.reduce((sum, i) => sum + i.quantity, 0); // مجموع عدد القطع الكلي
+  const totalItems = items.length;
+  const totalQuantity = items.reduce((sum, i) => sum + i.quantity, 0);
   const totalPrice = items.reduce(
     (sum, i) => sum + i.quantity * Number(i.product.price),
     0
   );
 
-  /* ── إضافة منتج (يتطلب بيانات المنتج مع اللون الاختياري) ── */
+  /* ── إضافة منتج مع دعم الكمية واللون ── */
   const addToCart = useCallback(
     async (
       productId: string | number,
       quantity = 1,
       productData?: Partial<CartProduct>,
-      selectedColor?: "ذهبي" | "فضي" | string
+      selectedColor?: string
     ) => {
       setLoading(true);
       try {
@@ -194,7 +194,6 @@ export function useCart() {
         const color = selectedColor || productData?.selectedColor;
         const cartItemId = color ? `${normalizedBaseId}-${color}` : normalizedBaseId;
 
-        // إذا ما في بيانات مباشرة، نجيبها من الـ API
         let product: CartProduct | null = productData
           ? ({ ...productData, id: normalizedBaseId, selectedColor: color } as CartProduct)
           : null;
@@ -227,7 +226,6 @@ export function useCart() {
 
         let newItems: CartItem[];
         if (existing) {
-          // إذا كان المنتج مضافاً مسبقاً بنفس اللون، نزيد الكمية
           newItems = current.items.map((i) =>
             i.id === cartItemId ? { ...i, quantity: i.quantity + quantity } : i
           );

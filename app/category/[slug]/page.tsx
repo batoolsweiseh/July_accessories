@@ -129,6 +129,7 @@ export default async function CategoryPage({
     const desc = p.description || "";
     const isNew = desc.includes("[tag:new]");
     const isTrending = desc.includes("[tag:trending]");
+    const hasColors = desc.includes("[tag:colors]");
     const subcategoryTitle = subcategoryMap.get(p.subcategory_id) || "عام";
 
     return {
@@ -141,6 +142,7 @@ export default async function CategoryPage({
       inStock: p.in_stock !== false,
       isNew,
       isTrending,
+      hasColors,
     };
   });
 

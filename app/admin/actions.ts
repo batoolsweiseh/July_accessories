@@ -48,6 +48,7 @@ export async function createProduct(formData: FormData) {
     const inStock = formData.get("inStock") === "true";
     const isNew = formData.get("isNew") === "true";
     const isTrending = formData.get("isTrending") === "true";
+    const hasColors = formData.get("hasColors") === "true";
     const file = formData.get("imageFile") as File | null;
 
     let imageUrl = "";
@@ -83,6 +84,7 @@ export async function createProduct(formData: FormData) {
     let finalDescription = description || "";
     if (isNew) finalDescription += " [tag:new]";
     if (isTrending) finalDescription += " [tag:trending]";
+    if (hasColors) finalDescription += " [tag:colors]";
 
     const { error: insertError } = await supabaseAdmin.from("products").insert({
       name,
@@ -179,6 +181,7 @@ export async function updateProduct(id: string, formData: FormData) {
     const inStock = formData.get("inStock") === "true";
     const isNew = formData.get("isNew") === "true";
     const isTrending = formData.get("isTrending") === "true";
+    const hasColors = formData.get("hasColors") === "true";
     const existingImageUrl = formData.get("existingImageUrl") as string | null;
     const file = formData.get("imageFile") as File | null;
 
@@ -224,6 +227,7 @@ export async function updateProduct(id: string, formData: FormData) {
     let finalDescription = description || "";
     if (isNew) finalDescription += " [tag:new]";
     if (isTrending) finalDescription += " [tag:trending]";
+    if (hasColors) finalDescription += " [tag:colors]";
 
     const { error: updateError } = await supabaseAdmin
       .from("products")

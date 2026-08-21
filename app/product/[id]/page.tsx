@@ -1,21 +1,23 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import type { Metadata } from "next";
-import { supabaseAdmin } from "@/lib/supabase-admin";
 import ProductDetailClient from "@/components/ProductDetailClient";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 type Product = {
-  id: number;
+  id: number | string;
   name: string;
   price: string;
   category: string;
+  inStock?: boolean;
   isNew?: boolean;
   desc: string;
   fullDesc: string;
   specs: { label: string; value: string }[];
   image?: string;
   whatsapp: string;
+  hasColors?: boolean;
 };
 
 async function getProductById(id: string): Promise<Product | undefined> {
@@ -30,8 +32,13 @@ async function getProductById(id: string): Promise<Product | undefined> {
       return undefined;
     }
     const desc = data.description || "";
-    const cleanDesc = desc.replace(/\[tag:new\]/g, "").replace(/\[tag:trending\]/g, "").trim();
+    const cleanDesc = desc
+      .replace(/\[tag:new\]/g, "")
+      .replace(/\[tag:trending\]/g, "")
+      .replace(/\[tag:colors\]/g, "")
+      .trim();
     const isNew = data.is_new || desc.includes("[tag:new]");
+    const hasColors = desc.includes("[tag:colors]");
     return {
       id: data.id,
       name: data.name,
@@ -43,6 +50,7 @@ async function getProductById(id: string): Promise<Product | undefined> {
       specs: [],
       image: data.image_url,
       whatsapp: data.whatsapp_message || `https://wa.me/972597287067?text=أريد أطلب: ${data.name}`,
+      hasColors,
     };
   } catch (err) {
     console.error("Error fetching product by ID from Supabase:", err);
@@ -59,8 +67,13 @@ async function getAllProducts(): Promise<Product[]> {
     }
     return data.map((p: any) => {
       const desc = p.description || "";
-      const cleanDesc = desc.replace(/\[tag:new\]/g, "").replace(/\[tag:trending\]/g, "").trim();
+      const cleanDesc = desc
+        .replace(/\[tag:new\]/g, "")
+        .replace(/\[tag:trending\]/g, "")
+        .replace(/\[tag:colors\]/g, "")
+        .trim();
       const isNew = p.is_new || desc.includes("[tag:new]");
+      const hasColors = desc.includes("[tag:colors]");
       return {
         id: p.id,
         name: p.name,
@@ -72,6 +85,7 @@ async function getAllProducts(): Promise<Product[]> {
         specs: [],
         image: p.image_url,
         whatsapp: p.whatsapp_message || `https://wa.me/972597287067?text=أريد أطلب: ${p.name}`,
+        hasColors,
       };
     });
   } catch (err) {
@@ -80,31 +94,24 @@ async function getAllProducts(): Promise<Product[]> {
   }
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { id: string };
-}): Promise<Metadata> {
-  const product = await getProductById(params.id);
-  if (!product) return { title: "المنتج غير موجود" };
-  return {
-    title: `${product.name} | July Accessories`,
-    description: product.fullDesc,
-  };
-}
-
 export async function generateStaticParams() {
-  const allProducts = await getAllProducts();
-  return allProducts.map((p) => ({ id: String(p.id) }));
+  const products = await getAllProducts();
+  return products.map((p) => ({
+    id: String(p.id),
+  }));
 }
 
-export default async function ProductPage({
+export default async function ProductDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const product = await getProductById(params.id);
-  if (!product) notFound();
+  const { id } = await params;
+  const product = await getProductById(id);
+
+  if (!product) {
+    notFound();
+  }
 
   return (
     <>

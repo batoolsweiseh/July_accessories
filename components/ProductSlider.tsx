@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useCart } from "@/lib/useCart";
 import ImageLightbox from "@/components/ImageLightbox";
-import ColorSelectModal from "@/components/ColorSelectModal";
-import { supportsColorChoice, ProductColor } from "@/lib/productUtils";
+import ProductQuickViewModal from "@/components/ProductQuickViewModal";
 
 /* ── أنواع ── */
 type Product = {
@@ -19,6 +18,7 @@ type Product = {
   isFeatured?: boolean;
   isNew?: boolean;
   isTrending?: boolean;
+  hasColors?: boolean;
 };
 
 /* ── قراءة/حفظ المفضلة من localStorage ── */
@@ -42,49 +42,13 @@ function saveFavorites(ids: (string | number)[]) {
 function ProductCard({ product }: { product: Product }) {
   const [isFav, setIsFav] = useState(false);
   const [imgSrc, setImgSrc] = useState(product.image || "/product-placeholder.png");
-  const [addedState, setAddedState] = useState<"idle" | "loading" | "done">("idle");
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [colorModalOpen, setColorModalOpen] = useState(false);
-  const { addToCart } = useCart();
-
-  const hasColorChoice = supportsColorChoice(product.category);
-
-  const executeAddToCart = async (color?: ProductColor) => {
-    if (product.inStock === false) return;
-    if (addedState !== "idle") return;
-    setAddedState("loading");
-    await addToCart(
-      String(product.id),
-      1,
-      {
-        id: String(product.id),
-        name: product.name,
-        price: Number(String(product.price).replace(/[^\d.]/g, "")) || 0,
-        image_url: imgSrc,
-        in_stock: true,
-        category_slug: product.category,
-        selectedColor: color,
-      },
-      color
-    );
-    setAddedState("done");
-    window.dispatchEvent(new Event("july-open-cart"));
-    setTimeout(() => setAddedState("idle"), 2000);
-  };
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
 
   const handleBuy = (e: React.MouseEvent) => {
     e.preventDefault();
     if (product.inStock === false) return;
-    if (hasColorChoice) {
-      setColorModalOpen(true);
-    } else {
-      executeAddToCart();
-    }
-  };
-
-  const handleColorSelect = (color: ProductColor) => {
-    setColorModalOpen(false);
-    executeAddToCart(color);
+    setQuickViewOpen(true);
   };
 
   /* نحمّل حالة المفضلة عند الـ mount */
@@ -95,9 +59,11 @@ function ProductCard({ product }: { product: Product }) {
     return () => window.removeEventListener("july-favorites-changed", sync);
   }, [product.id]);
 
-  const toggleFav = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const toggleFav = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const current = getFavorites();
     const next = current.includes(product.id)
       ? current.filter((x) => x !== product.id)
@@ -190,24 +156,9 @@ function ProductCard({ product }: { product: Product }) {
               <button
                 type="button"
                 onClick={handleBuy}
-                disabled={addedState !== "idle"}
-                className={`inline-flex h-4 flex-1 items-center justify-center rounded-lg text-[6px] font-semibold transition-all duration-200 focus:outline-none ${
-                  addedState === "done"
-                    ? "bg-green-500 text-white"
-                    : "bg-black text-white hover:bg-neutral-700"
-                } disabled:opacity-70`}
+                className="inline-flex h-4 flex-1 items-center justify-center rounded-lg text-[6px] font-semibold transition-all duration-200 focus:outline-none bg-black text-white hover:bg-neutral-700 active:scale-95"
               >
-                {addedState === "loading" ? (
-                  <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                  </svg>
-                ) : addedState === "done" ? (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
-                ) : (
-                  "اشتري"
-                )}
+                اشتري
               </button>
               <button
                 type="button"
@@ -225,6 +176,7 @@ function ProductCard({ product }: { product: Product }) {
       </div>
     </div>
 
+    {/* تكبير الصورة */}
     <ImageLightbox
       isOpen={lightboxOpen}
       onClose={() => setLightboxOpen(false)}
@@ -234,17 +186,24 @@ function ProductCard({ product }: { product: Product }) {
       price={product.price}
     />
 
-    <ColorSelectModal
-      isOpen={colorModalOpen}
-      onClose={() => setColorModalOpen(false)}
+    {/* صفحة المواصفات واختيار اللون والشراء */}
+    <ProductQuickViewModal
+      isOpen={quickViewOpen}
+      onClose={() => setQuickViewOpen(false)}
       product={{
         id: product.id,
         name: product.name,
         price: product.price,
         image: imgSrc,
         category: product.category,
+        inStock: product.inStock,
+        isFeatured: product.isFeatured,
+        isNew: product.isNew || product.is_new,
+        isTrending: product.isTrending,
+        hasColors: product.hasColors,
       }}
-      onSelectColor={handleColorSelect}
+      isFavorite={isFav}
+      onToggleFavorite={() => toggleFav()}
     />
   </>
 );
@@ -281,7 +240,6 @@ function ArrowBtn({
 }
 
 /* ── شريط سلايدر لقسم واحد ── */
-/* ── شريط سلايدر لقسم واحد ── */
 function SectionSlider({
   title,
   titleAr,
@@ -293,7 +251,7 @@ function SectionSlider({
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const getScrollAmount = () => {
-    if (!trackRef.current) return 152; // approximate card width + gap fallback
+    if (!trackRef.current) return 152;
     const firstCard = trackRef.current.querySelector(".group");
     return firstCard ? firstCard.clientWidth + 16 : 152;
   };
@@ -362,6 +320,7 @@ export default function ProductSlider() {
             const desc = p.description || "";
             const isNew = !!p.is_new || desc.includes("[tag:new]");
             const isTrending = !!p.is_trending || desc.includes("[tag:trending]");
+            const hasColors = desc.includes("[tag:colors]");
             return {
               id: p.id,
               name: p.name,
@@ -372,10 +331,10 @@ export default function ProductSlider() {
               inStock: p.in_stock ?? true,
               isNew,
               isTrending,
+              hasColors,
             };
           });
 
-          // Only show products marked as Featured (مميز), New (جديد), or Trending (ترند) under Latest Products
           return allProds.filter((p: Product) => p.isFeatured || p.isNew || p.isTrending);
         };
 

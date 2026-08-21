@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/lib/useCart";
 import ImageLightbox from "@/components/ImageLightbox";
-import { supportsColorChoice, ProductColor } from "@/lib/productUtils";
 
 type Product = {
   id: number | string;
@@ -19,29 +18,30 @@ type Product = {
   specs: { label: string; value: string }[];
   image?: string;
   whatsapp: string;
+  hasColors?: boolean;
 };
 
 export default function ProductDetailClient({ product }: { product: Product }) {
   const [adding, setAdding] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [selectedColor, setSelectedColor] = useState<ProductColor>("ذهبي");
+  const [selectedColor, setSelectedColor] = useState<"ذهبي" | "فضي">("ذهبي");
+  const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
-
-  const hasColorChoice = supportsColorChoice(product.category);
 
   const handleAddToCart = async () => {
     if (product.inStock === false) return;
     setAdding(true);
     try {
-      const numericPrice = parseFloat(product.price.replace(/[^\d.]/g, ""));
-      const colorToSave = hasColorChoice ? selectedColor : undefined;
+      const numericPrice = parseFloat(product.price.replace(/[^\d.]/g, "")) || 0;
+      const colorToSave = product.hasColors ? selectedColor : undefined;
+
       await addToCart(
         product.id,
-        1,
+        quantity,
         {
           id: String(product.id),
           name: product.name,
-          price: isNaN(numericPrice) ? 0 : numericPrice,
+          price: numericPrice,
           image_url: product.image || null,
           category_slug: product.category,
           in_stock: true,
@@ -57,6 +57,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
       setAdding(false);
     }
   };
+
+  const numericPrice = parseFloat(product.price.replace(/[^\d.]/g, "")) || 0;
 
   return (
     <main className="min-h-screen bg-paper">
@@ -106,33 +108,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               ) : (
                 <div className="flex flex-col items-center gap-4 p-6">
                   <svg viewBox="0 0 120 120" className="h-24 w-24" fill="none" aria-hidden>
-                    {product.category === "حلقان" && (
-                      <>
-                        <circle cx="60" cy="60" r="38" stroke="#9DA3A8" strokeWidth="8" />
-                        <circle cx="60" cy="60" r="28" stroke="#D1D5DB" strokeWidth="3" strokeDasharray="6 4" />
-                      </>
-                    )}
-                    {product.category === "سناسل" && (
-                      [0, 1, 2, 3, 4, 5].map((i) => (
-                        <ellipse key={i} cx={10 + i * 20} cy="60" rx="12" ry="8" stroke="#9DA3A8" strokeWidth="4" />
-                      ))
-                    )}
-                    {product.category === "خواتم" && (
-                      <>
-                        <circle cx="60" cy="60" r="34" stroke="#9DA3A8" strokeWidth="10" />
-                        <circle cx="60" cy="26" r="7" fill="#000000" />
-                      </>
-                    )}
-                    {product.category === "ساعات" && (
-                      <>
-                        <rect x="25" y="20" width="70" height="80" rx="18" stroke="#9DA3A8" strokeWidth="5" />
-                        <circle cx="60" cy="60" r="24" stroke="#D1D5DB" strokeWidth="3" />
-                        <line x1="60" y1="60" x2="60" y2="40" stroke="#000000" strokeWidth="3" strokeLinecap="round" />
-                        <line x1="60" y1="60" x2="76" y2="60" stroke="#4B5563" strokeWidth="2.5" strokeLinecap="round" />
-                        <rect x="40" y="5" width="40" height="16" rx="6" stroke="#9DA3A8" strokeWidth="3" />
-                        <rect x="40" y="99" width="40" height="16" rx="6" stroke="#9DA3A8" strokeWidth="3" />
-                      </>
-                    )}
+                    <circle cx="60" cy="60" r="38" stroke="#9DA3A8" strokeWidth="8" />
                   </svg>
                   <p className="font-mono text-[10px] text-charcoal tracking-widest text-center">JULY ACCESSORIES</p>
                 </div>
@@ -154,23 +130,101 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             </p>
 
             {/* الاسم */}
-            <h1 className="font-display text-4xl text-charcoal sm:text-5xl leading-tight mb-4">
+            <h1 className="font-display text-4xl text-charcoal sm:text-5xl leading-tight mb-3">
               {product.name}
             </h1>
 
             {/* السعر */}
-            <p className="mb-6 font-mono text-3xl font-bold text-charcoal">
+            <p className="mb-6 font-mono text-3xl font-bold text-[#00875a]">
               {product.price}
             </p>
 
+            {/* اختيار اللون مع صور مصغرة (يظهر فقط إن كان مفعلاً للمنتج) */}
+            {product.hasColors && (
+              <div className="mb-6 space-y-2.5">
+                <div className="flex items-center justify-between text-sm font-bold text-neutral-900">
+                  <span>اختر اللون:</span>
+                  <span className="text-[#00875a] font-extrabold text-base">
+                    {selectedColor === "ذهبي" ? "ذهبي (Gold)" : "فضي (Silver)"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {/* بطاقة ذهبي مع صورة */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedColor("ذهبي")}
+                    className={`group relative flex flex-col items-center w-24 rounded-2xl overflow-hidden border-2 transition-all duration-200 p-1 bg-white ${
+                      selectedColor === "ذهبي"
+                        ? "border-[#00875a] ring-2 ring-[#00875a]/25 shadow-lg scale-105"
+                        : "border-black/15 hover:border-black/30 opacity-75 hover:opacity-100"
+                    }`}
+                  >
+                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-neutral-100 mb-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={product.image || "/product-placeholder.png"}
+                        alt="ذهبي"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/product-placeholder.png";
+                        }}
+                      />
+                      <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-amber-600 via-amber-400 to-amber-200 border border-amber-600/40 shadow-sm" />
+                    </div>
+                    <span className={`text-xs font-bold ${selectedColor === "ذهبي" ? "text-[#00875a]" : "text-neutral-700"}`}>
+                      ذهبي
+                    </span>
+                    {selectedColor === "ذهبي" && (
+                      <span className="absolute top-1.5 left-1.5 h-4 w-4 rounded-full bg-[#00875a] text-white flex items-center justify-center text-[9px] font-black shadow-sm">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+
+                  {/* بطاقة فضي مع صورة */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedColor("فضي")}
+                    className={`group relative flex flex-col items-center w-24 rounded-2xl overflow-hidden border-2 transition-all duration-200 p-1 bg-white ${
+                      selectedColor === "فضي"
+                        ? "border-[#00875a] ring-2 ring-[#00875a]/25 shadow-lg scale-105"
+                        : "border-black/15 hover:border-black/30 opacity-75 hover:opacity-100"
+                    }`}
+                  >
+                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-neutral-100 mb-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={product.image || "/product-placeholder.png"}
+                        alt="فضي"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/product-placeholder.png";
+                        }}
+                      />
+                      <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-slate-400 via-slate-200 to-white border border-slate-400/40 shadow-sm" />
+                    </div>
+                    <span className={`text-xs font-bold ${selectedColor === "فضي" ? "text-[#00875a]" : "text-neutral-700"}`}>
+                      فضي
+                    </span>
+                    {selectedColor === "فضي" && (
+                      <span className="absolute top-1.5 left-1.5 h-4 w-4 rounded-full bg-[#00875a] text-white flex items-center justify-center text-[9px] font-black shadow-sm">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* الوصف */}
-            <p className="mb-8 text-base leading-relaxed text-charcoal">
+            <p className="mb-6 text-base leading-relaxed text-charcoal">
               {product.fullDesc}
             </p>
 
             {/* المواصفات */}
             {product.specs && product.specs.length > 0 && (
-              <div className="mb-8 rounded-2xl border border-steel/20 bg-paper-2 p-6">
+              <div className="mb-6 rounded-2xl border border-steel/20 bg-paper-2 p-6">
                 <h2 className="mb-4 font-display text-lg text-charcoal">المواصفات</h2>
                 <dl className="space-y-3">
                   {product.specs.map((s) => (
@@ -183,56 +237,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               </div>
             )}
 
-            {/* اختيار اللون (ذهبي / فضي) */}
-            {hasColorChoice && (
-              <div className="mb-8 rounded-2xl border border-steel/20 bg-paper-2 p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-bold text-charcoal flex items-center gap-1.5">
-                    <span>اختر اللون:</span>
-                    <span className="text-[#E0457D] font-extrabold">{selectedColor}</span>
-                  </label>
-                  <span className="text-[11px] text-charcoal/50">متوفر بلونين</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedColor("ذهبي")}
-                    className={`flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border-2 transition-all duration-200 font-bold text-sm ${
-                      selectedColor === "ذهبي"
-                        ? "border-amber-500 bg-amber-50/90 text-amber-950 shadow-md scale-[1.02]"
-                        : "border-steel/20 bg-white text-charcoal hover:border-steel/40"
-                    }`}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-gradient-to-tr from-amber-600 via-amber-400 to-amber-200 border border-amber-600/40 shadow-sm inline-block" />
-                    <span>ذهبي (Gold)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedColor("فضي")}
-                    className={`flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border-2 transition-all duration-200 font-bold text-sm ${
-                      selectedColor === "فضي"
-                        ? "border-slate-500 bg-slate-100 text-slate-900 shadow-md scale-[1.02]"
-                        : "border-steel/20 bg-white text-charcoal hover:border-steel/40"
-                    }`}
-                  >
-                    <span className="w-5 h-5 rounded-full bg-gradient-to-tr from-slate-400 via-slate-200 to-white border border-slate-400/40 shadow-sm inline-block" />
-                    <span>فضي (Silver)</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* مميزات ستانلس */}
-            <div className="mb-8 flex flex-wrap gap-2">
-              {["ضد الصدأ", "ضد الماء", "ضد العرق", "آمن على البشرة"].map((tag) => (
-                <span key={tag} className="rounded-full border border-steel/20 bg-white px-4 py-1.5 text-xs font-medium text-charcoal">
-                  ✦ {tag}
-                </span>
-              ))}
-            </div>
-
-            {/* زر إضافة للسلة */}
+            {/* التحكم بالكمية والزر */}
             <div className="flex flex-col gap-3">
               {product.inStock === false ? (
                 <div className="w-full py-4 rounded-2xl bg-neutral-200 text-neutral-500 text-base font-bold flex items-center justify-center gap-2 cursor-not-allowed select-none">
@@ -240,19 +245,43 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                   نفدت الكمية — غير متوفر حالياً
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleAddToCart}
-                  disabled={adding}
-                  className="w-full py-4 rounded-2xl bg-black text-white text-base font-semibold transition hover:bg-neutral-800 active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-black/10 hover:shadow-xl disabled:opacity-50"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="9" cy="21" r="1" />
-                    <circle cx="20" cy="21" r="1" />
-                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-                  </svg>
-                  {adding ? "جاري الإضافة..." : "إضافة للسلة"}
-                </button>
+                <div className="flex items-center gap-3">
+                  {/* عداد الكمية (- 1 +) */}
+                  <div className="flex items-center border-2 border-black/15 rounded-2xl bg-white px-3 py-1.5 h-14">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      className="h-9 w-9 flex items-center justify-center rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-sm transition-colors active:scale-95"
+                    >
+                      -
+                    </button>
+                    <span className="w-12 text-center font-bold text-base font-mono text-neutral-900">
+                      {quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => q + 1)}
+                      className="h-9 w-9 flex items-center justify-center rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-sm transition-colors active:scale-95"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* زر الشراء الأخضر */}
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    disabled={adding}
+                    className="flex-1 h-14 rounded-2xl bg-[#00875a] hover:bg-[#00704a] text-white text-base font-bold transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="9" cy="21" r="1" />
+                      <circle cx="20" cy="21" r="1" />
+                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                    </svg>
+                    <span>{adding ? "جاري الإضافة..." : `شراء هذا المنتج (${(numericPrice * quantity).toFixed(0)} ₪)`}</span>
+                  </button>
+                </div>
               )}
             </div>
 

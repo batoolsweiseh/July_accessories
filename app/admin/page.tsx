@@ -536,6 +536,7 @@ export default function AdminPage() {
   const [inStock, setInStock] = useState(true);
   const [isNew, setIsNew] = useState(false);
   const [isTrending, setIsTrending] = useState(false);
+  const [hasColors, setHasColors] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [cropperOpen, setCropperOpen] = useState(false);
@@ -643,6 +644,7 @@ export default function AdminPage() {
     setInStock(true);
     setIsNew(false);
     setIsTrending(false);
+    setHasColors(false);
     setImageFile(null);
     setImagePreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -655,13 +657,14 @@ export default function AdminPage() {
     setPrice(String(product.price));
     // Strip tags from description
     const rawDesc = product.description || "";
-    setDescription(rawDesc.replace(/\s*\[tag:(new|trending)\]/g, "").trim());
+    setDescription(rawDesc.replace(/\s*\[tag:(new|trending|colors)\]/g, "").trim());
     setCategorySlug(product.category_slug);
     setSubcategoryId(product.subcategory_id || "");
     setIsFeatured(product.is_featured);
     setInStock(product.in_stock);
     setIsNew(rawDesc.includes("[tag:new]"));
     setIsTrending(rawDesc.includes("[tag:trending]"));
+    setHasColors(rawDesc.includes("[tag:colors]"));
     setImageFile(null);
     setImagePreviewUrl(product.image_url || null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -689,6 +692,7 @@ export default function AdminPage() {
     formData.append("inStock", String(inStock));
     formData.append("isNew", String(isNew));
     formData.append("isTrending", String(isTrending));
+    formData.append("hasColors", String(hasColors));
     if (imageFile) formData.append("imageFile", imageFile);
 
     let result;
@@ -1081,6 +1085,7 @@ export default function AdminPage() {
                       { label: "متوفر بالمخزون", value: inStock, setter: setInStock },
                       { label: "منتج جديد", value: isNew, setter: setIsNew },
                       { label: "منتج ترند", value: isTrending, setter: setIsTrending },
+                      { label: "خيارات ألوان (ذهبي / فضي)", value: hasColors, setter: setHasColors },
                     ].map(({ label, value, setter }) => (
                       <label key={label} className="flex items-center gap-2 cursor-pointer select-none">
                         <input

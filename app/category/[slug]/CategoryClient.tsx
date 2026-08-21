@@ -1,12 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useCart } from "@/lib/useCart";
 import ImageLightbox from "@/components/ImageLightbox";
-import ColorSelectModal from "@/components/ColorSelectModal";
-import { supportsColorChoice, ProductColor } from "@/lib/productUtils";
+import ProductQuickViewModal from "@/components/ProductQuickViewModal";
 
 type Product = {
   id: string;
@@ -18,6 +16,7 @@ type Product = {
   inStock?: boolean;
   isNew?: boolean;
   isTrending?: boolean;
+  hasColors?: boolean;
 };
 
 function getFavorites(): string[] {
@@ -84,63 +83,15 @@ export default function CategoryClient({
 }: CategoryClientProps) {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>("");
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
-  const [addingId, setAddingId] = useState<string | null>(null);
-  const [doneId, setDoneId] = useState<string | null>(null);
   const [page, setPage] = useState<number>(1);
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
-  const [colorSelectProduct, setColorSelectProduct] = useState<Product | null>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const filterScrollerRef = useRef<HTMLDivElement | null>(null);
-  const { addToCart } = useCart();
 
-  const executeAddToCart = useCallback(
-    async (product: Product, color?: ProductColor) => {
-      if (product.inStock === false) return;
-      if (addingId === product.id) return;
-      setAddingId(product.id);
-      await addToCart(
-        product.id,
-        1,
-        {
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          image_url: product.image || "/product-placeholder.png",
-          in_stock: true,
-          category_slug: product.subcategory,
-          selectedColor: color,
-        },
-        color
-      );
-      setAddingId(null);
-      setDoneId(product.id);
-      window.dispatchEvent(new Event("july-open-cart"));
-      setTimeout(() => setDoneId(null), 2000);
-    },
-    [addToCart, addingId]
-  );
-
-  const handleBuy = useCallback(
-    (product: Product) => {
-      if (product.inStock === false) return;
-      const hasColorChoice = supportsColorChoice(product.subcategory || categoryTitle);
-      if (hasColorChoice) {
-        setColorSelectProduct(product);
-      } else {
-        executeAddToCart(product);
-      }
-    },
-    [categoryTitle, executeAddToCart]
-  );
-
-  const handleColorSelect = useCallback(
-    (color: ProductColor) => {
-      if (!colorSelectProduct) return;
-      const prod = colorSelectProduct;
-      setColorSelectProduct(null);
-      executeAddToCart(prod, color);
-    },
-    [colorSelectProduct, executeAddToCart]
-  );
+  const handleBuy = (product: Product) => {
+    if (product.inStock === false) return;
+    setQuickViewProduct(product);
+  };
 
   useEffect(() => {
     const load = () => {
@@ -160,11 +111,12 @@ export default function CategoryClient({
     });
   };
 
-  const toggleFavorite = (productId: string) => {
+  const toggleFavorite = (productId: string | number) => {
+    const pId = String(productId);
     const current = getFavorites();
-    const next = current.includes(productId)
-      ? current.filter((id) => id !== productId)
-      : [...current, productId];
+    const next = current.includes(pId)
+      ? current.filter((id) => id !== pId)
+      : [...current, pId];
     saveFavorites(next);
     setFavoriteIds(next);
   };
@@ -376,22 +328,9 @@ export default function CategoryClient({
                       <button
                         type="button"
                         onClick={() => handleBuy(product)}
-                        disabled={addingId === product.id}
-                        className={`inline-flex h-4 flex-1 items-center justify-center rounded-lg text-[5px] font-semibold transition-all duration-200 active:scale-95 ${
-                          doneId === product.id
-                            ? 'bg-green-500 text-white'
-                            : 'bg-charcoal text-white hover:bg-neutral-800'
-                        } disabled:opacity-60`}
+                        className="inline-flex h-4 flex-1 items-center justify-center rounded-lg text-[5px] font-semibold transition-all duration-200 active:scale-95 bg-charcoal text-white hover:bg-neutral-800"
                       >
-                        {addingId === product.id ? (
-                          <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4" />
-                          </svg>
-                        ) : doneId === product.id ? (
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                            <path d="M20 6L9 17l-5-5" />
-                          </svg>
-                        ) : "اشتري"}
+                        اشتري
                       </button>
                     )}
                     <button
@@ -402,13 +341,13 @@ export default function CategoryClient({
                         toggleFavorite(product.id);
                       }}
                       className={`inline-flex h-4 w-4 items-center justify-center rounded-lg border transition-all duration-200 ${
-                        favoriteIds.includes(product.id)
+                        favoriteIds.includes(String(product.id))
                           ? 'bg-white text-[#E0457D] border-[#E0457D]'
                           : 'bg-white text-charcoal border-black/10 hover:border-[#E0457D]'
                       }`}
-                      aria-label={favoriteIds.includes(product.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+                      aria-label={favoriteIds.includes(String(product.id)) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
                     >
-                      <i className={`${favoriteIds.includes(product.id) ? 'fa-solid' : 'fa-regular'} fa-heart text-[8px]`} aria-hidden="true" />
+                      <i className={`${favoriteIds.includes(String(product.id)) ? 'fa-solid' : 'fa-regular'} fa-heart text-[8px]`} aria-hidden="true" />
                     </button>
                   </div>
                 </div>
@@ -465,6 +404,7 @@ export default function CategoryClient({
         )}
       </section>
 
+      {/* تكبير الصورة */}
       <ImageLightbox
         isOpen={!!previewProduct}
         onClose={() => setPreviewProduct(null)}
@@ -474,21 +414,28 @@ export default function CategoryClient({
         price={previewProduct ? `${previewProduct.price} ₪` : undefined}
       />
 
-      <ColorSelectModal
-        isOpen={!!colorSelectProduct}
-        onClose={() => setColorSelectProduct(null)}
+      {/* صفحة المواصفات واختيار اللون والشراء */}
+      <ProductQuickViewModal
+        isOpen={!!quickViewProduct}
+        onClose={() => setQuickViewProduct(null)}
         product={
-          colorSelectProduct
+          quickViewProduct
             ? {
-                id: colorSelectProduct.id,
-                name: colorSelectProduct.name,
-                price: colorSelectProduct.price,
-                image: colorSelectProduct.image,
-                category: colorSelectProduct.subcategory,
+                id: quickViewProduct.id,
+                name: quickViewProduct.name,
+                price: quickViewProduct.price,
+                image: quickViewProduct.image,
+                category: quickViewProduct.subcategory,
+                inStock: quickViewProduct.inStock,
+                isFeatured: quickViewProduct.isFeatured,
+                isNew: quickViewProduct.isNew,
+                isTrending: quickViewProduct.isTrending,
+                hasColors: quickViewProduct.hasColors,
               }
             : null
         }
-        onSelectColor={handleColorSelect}
+        isFavorite={quickViewProduct ? favoriteIds.includes(String(quickViewProduct.id)) : false}
+        onToggleFavorite={toggleFavorite}
       />
     </main>
   );
