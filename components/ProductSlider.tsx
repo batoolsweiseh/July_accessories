@@ -106,8 +106,8 @@ function ProductCard({ product }: { product: Product }) {
           {/* بادجات المنتج */}
           <div className="absolute top-1 right-1 flex flex-col gap-1 z-10 pointer-events-none" dir="rtl">
             {product.isFeatured && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-amber-900 shadow-lg shadow-amber-200/50 ring-1 ring-white/70">
-                <span className="text-[10px]">★</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 text-white px-2 py-1 text-[8px] font-bold uppercase tracking-[0.16em] shadow-lg shadow-amber-500/40 ring-1 ring-white/80">
+                <span className="text-[10px] text-white">★</span>
                 مميز
               </span>
             )}
