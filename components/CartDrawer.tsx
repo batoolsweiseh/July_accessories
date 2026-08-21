@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useCart, CartItem } from "@/lib/useCart";
 import { createCustomerOrder } from "@/app/admin/actions";
@@ -327,7 +328,11 @@ export function CartIcon({ className = "" }: { className?: string }) {
       <button
         id="cart-icon-btn"
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((value) => !value);
+        }}
         aria-label="فتح السلة"
         className={`relative inline-flex items-center justify-center ${className}`}
       >
@@ -352,6 +357,7 @@ export function CartIcon({ className = "" }: { className?: string }) {
 type DrawerView = "cart" | "form" | "success";
 
 function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [mounted, setMounted] = useState(false);
   const { cart, loading, totalPrice, updateQuantity, removeItem, clearCart, syncCart } = useCart();
   const drawerRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<DrawerView>("cart");
@@ -359,11 +365,17 @@ function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [submittingOrder, setSubmittingOrder] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (open) {
       syncCart();
       setView("cart"); // إعادة تعيين العرض عند فتح السلة
     }
   }, [open, syncCart]);
+
+  if (!mounted) return null;
 
   const items: CartItem[] = cart?.items ?? [];
 
@@ -414,13 +426,21 @@ function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
     onClose();
   };
 
-  return (
+  return createPortal(
     <>
-      {/* الدرج */}
+      {/* خلفية معتمة تتيح النقر للإغلاق */}
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 z-[9998] bg-black/40 backdrop-blur-[2px] transition-opacity duration-300 ${
+          open ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+      />
+
+      {/* النافذة المنبثقة للسلة */}
       <div
         ref={drawerRef}
         dir="rtl"
-        className={`fixed top-14 sm:top-[4.5rem] left-3 right-3 sm:left-4 sm:right-4 bottom-3 sm:bottom-4 z-50 flex flex-col max-h-[calc(100dvh-4.5rem)] md:bottom-auto md:max-h-[calc(100vh-5rem)] w-auto md:absolute md:top-full md:right-0 md:left-auto md:w-[350px] bg-[#fffafc] shadow-2xl border border-black/10 rounded-[28px] sm:rounded-[32px] overflow-hidden transition-all duration-200 ease-out ${
+        className={`fixed top-14 sm:top-16 left-3 right-3 sm:left-auto sm:right-6 bottom-3 sm:bottom-auto sm:w-[380px] sm:max-h-[calc(100vh-5rem)] max-h-[calc(100dvh-4.5rem)] z-[9999] flex flex-col bg-[#fffafc] shadow-2xl border border-black/10 rounded-[28px] sm:rounded-[32px] overflow-hidden transition-all duration-200 ease-out ${
           open ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
         }`}
       >
@@ -538,7 +558,8 @@ function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
           <SuccessScreen name={successName} onClose={handleSuccessClose} />
         )}
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
