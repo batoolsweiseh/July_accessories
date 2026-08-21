@@ -55,8 +55,8 @@ function drawWheel(canvas: HTMLCanvasElement, segments: Segment[], rotation: num
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.2)";
-  ctx.shadowBlur = 30;
+  ctx.shadowColor = "rgba(0,0,0,0.18)";
+  ctx.shadowBlur = 25;
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, 2 * Math.PI);
   ctx.fillStyle = "#fff";
@@ -74,44 +74,48 @@ function drawWheel(canvas: HTMLCanvasElement, segments: Segment[], rotation: num
     ctx.fillStyle = seg.color;
     ctx.fill();
     ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(start + arc / 2);
-    ctx.textAlign = "right";
+    ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const textColor = seg.textColor || getContrastColor(seg.color);
     ctx.fillStyle = textColor;
     
-    // حجم خط مناسب وواضح جداً بحجم الكانفاس الجديد
-    const fontSize = Math.max(16, Math.min(24, Math.floor(480 / segments.length)));
+    // حجم خط متوازن ومناسب لعدد الخيارات
+    const fontSize = Math.max(13, Math.min(18, Math.floor(380 / segments.length)));
     ctx.font = `bold ${fontSize}px 'IBM Plex Sans Arabic', 'Lalezar', sans-serif`;
     
     if (textColor === "#ffffff") {
-      ctx.shadowColor = "rgba(0,0,0,0.45)";
-      ctx.shadowBlur = 5;
+      ctx.shadowColor = "rgba(0,0,0,0.4)";
+      ctx.shadowBlur = 4;
     } else {
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
     }
-    ctx.fillText(seg.label, r - 25, 0);
+
+    // توسيط النص في منتصف شعاع الشريحة لمنع اختفاء أي حرف تحت الدائرة المركزية
+    const textRadius = (r + 48) / 2;
+    const maxTextWidth = r - 70;
+    ctx.fillText(seg.label, textRadius, 0, maxTextWidth);
     ctx.restore();
   });
 
-  // المركز الخارجي
+  // المركز الخارجي بحجم متناسق لا يغطي الكلمات
   ctx.beginPath();
-  ctx.arc(cx, cy, 36, 0, 2 * Math.PI);
+  ctx.arc(cx, cy, 26, 0, 2 * Math.PI);
   ctx.fillStyle = "#111";
   ctx.fill();
   ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 3.5;
   ctx.stroke();
 
   // نقطة المركز الداخلية
   ctx.beginPath();
-  ctx.arc(cx, cy, 14, 0, 2 * Math.PI);
+  ctx.arc(cx, cy, 9, 0, 2 * Math.PI);
   ctx.fillStyle = "#ffffff";
   ctx.fill();
 }
