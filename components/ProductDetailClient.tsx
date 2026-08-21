@@ -6,10 +6,11 @@ import Link from "next/link";
 import { useCart } from "@/lib/useCart";
 
 type Product = {
-  id: number;
+  id: number | string;
   name: string;
   price: string;
   category: string;
+  inStock?: boolean;
   isNew?: boolean;
   desc: string;
   fullDesc: string;
@@ -24,6 +25,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   const { addToCart } = useCart();
 
   const handleAddToCart = async () => {
+    if (product.inStock === false) return;
     setAdding(true);
     try {
       const numericPrice = parseFloat(product.price.replace(/[^\d.]/g, ""));
@@ -180,19 +182,26 @@ export default function ProductDetailClient({ product }: { product: Product }) {
 
             {/* زر إضافة للسلة */}
             <div className="flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={handleAddToCart}
-                disabled={adding}
-                className="w-full py-4 rounded-2xl bg-black text-white text-base font-semibold transition hover:bg-neutral-800 active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-black/10 hover:shadow-xl disabled:opacity-50"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="9" cy="21" r="1" />
-                  <circle cx="20" cy="21" r="1" />
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-                </svg>
-                {adding ? "جاري الإضافة..." : "إضافة للسلة"}
-              </button>
+              {product.inStock === false ? (
+                <div className="w-full py-4 rounded-2xl bg-neutral-200 text-neutral-500 text-base font-bold flex items-center justify-center gap-2 cursor-not-allowed select-none">
+                  <span>🚫</span>
+                  نفدت الكمية — غير متوفر حالياً
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={adding}
+                  className="w-full py-4 rounded-2xl bg-black text-white text-base font-semibold transition hover:bg-neutral-800 active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-black/10 hover:shadow-xl disabled:opacity-50"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="9" cy="21" r="1" />
+                    <circle cx="20" cy="21" r="1" />
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                  </svg>
+                  {adding ? "جاري الإضافة..." : "إضافة للسلة"}
+                </button>
+              )}
             </div>
 
             {/* رجوع */}

@@ -5,36 +5,25 @@ import Image from "next/image";
 import { useCart, CartItem } from "@/lib/useCart";
 import { createCustomerOrder } from "@/app/admin/actions";
 
-/* ─── بيانات المناطق والمدن ─── */
+/* ─── بيانات المناطق وسعر التوصيل ─── */
 const REGIONS = {
-  "الضفة الغربية": {
-    code: "+970",
+  "ضفة": {
+    label: "الضفة",
+    deliveryFee: 20,
     flag: "🇵🇸",
-    cities: [
-      "رام الله", "نابلس", "الخليل", "بيت لحم", "جنين",
-      "طولكرم", "قلقيلية", "أريحا", "سلفيت", "طوباس",
-      "بيرزيت", "الدوحة", "بيت جالا", "بيت ساحور", "دورا",
-      "يطا", "سعير", "حلحول", "الظاهرية", "بني نعيم",
-    ],
+    placeholderCity: "مثال: رام الله، نابلس، جنين، الخليل...",
   },
-  "الداخل 48": {
-    code: "+972",
-    flag: "🟢",
-    cities: [
-      "حيفا", "يافا", "الناصرة", "اللد", "الرملة",
-      "عكا", "أم الفحم", "باقة الغربية", "كفر قاسم", "طيرة",
-      "طمرة", "سخنين", "عرابة", "شفاعمرو", "يافة الناصرة",
-      "كفر كنا", "رهط", "تل شبع", "عسفيا", "دالية الكرمل",
-    ],
-  },
-  "القدس": {
-    code: "+972",
+  "قدس": {
+    label: "القدس",
+    deliveryFee: 30,
     flag: "🕌",
-    cities: [
-      "القدس القديمة", "بيت حنينا", "شعفاط", "بيت المقدس",
-      "رأس العمود", "سلوان", "الطور", "صور باهر", "أبو ديس",
-      "العيزرية",
-    ],
+    placeholderCity: "مثال: بيت حنينا، شعفاط، سلوان...",
+  },
+  "داخل": {
+    label: "الداخل",
+    deliveryFee: 50,
+    flag: "🟢",
+    placeholderCity: "مثال: الناصرة، حيفا، أم الفحم، طمرة، عكا...",
   },
 } as const;
 
@@ -47,6 +36,8 @@ interface OrderFormData {
   phone: string;
   region: RegionKey | "";
   city: string;
+  notes?: string;
+  deliveryFee: number;
 }
 
 function OrderForm({
@@ -64,6 +55,8 @@ function OrderForm({
     phone: "",
     region: "",
     city: "",
+    notes: "",
+    deliveryFee: 0,
   });
   // نوع مستقل لرسائل الخطأ (كلها strings)
   type FormErrors = { [K in keyof OrderFormData]?: string };
@@ -78,7 +71,6 @@ function OrderForm({
     setForm((prev) => ({
       ...prev,
       [field]: value,
-      ...(field === "region" ? { city: "" } : {}),
     }));
     setErrors((prev) => ({ ...prev, [field]: "" }));
   };
@@ -87,31 +79,15 @@ function OrderForm({
     const e: FormErrors = {};
     if (!form.firstName.trim()) e.firstName = "الاسم الأول مطلوب";
     if (!form.lastName.trim()) e.lastName = "اسم العائلة مطلوب";
-    if (!form.region) e.region = "اختر منطقتك";
-    if (!form.city) e.city = "اختر المدينة";
+    if (!form.region) e.region = "يرجى تحديد المنطقة (ضفة / قدس / داخل)";
+    if (!form.city.trim()) e.city = "يرجى كتابة اسم المدينة أو البلدة بالتفصيل";
     
     if (!form.phone.trim()) {
       e.phone = "رقم الهاتف مطلوب";
     } else {
       const cleaned = form.phone.replace(/[\s-()]/g, ""); // تنظيف المسافات والأقواس
-      if (form.region === "الضفة الغربية") {
-        // جوال (059 / 59) أو أوريدو (056 / 56)
-        const isTenDigit = /^05[69]\d{7}$/.test(cleaned);
-        const isNineDigit = /^5[69]\d{7}$/.test(cleaned);
-        if (!isTenDigit && !isNineDigit) {
-          e.phone = "يجب أن يبدأ بـ 059 (جوال) أو 056 (أوريدو) ويتكون من 10 أرقام";
-        }
-      } else if (form.region === "الداخل 48" || form.region === "القدس") {
-        // شبكات الداخل (050, 052, 053, 054, 055, 058)
-        const isTenDigit = /^05[023458]\d{7}$/.test(cleaned);
-        const isNineDigit = /^5[023458]\d{7}$/.test(cleaned);
-        if (!isTenDigit && !isNineDigit) {
-          e.phone = "يجب أن يبدأ بـ 050، 052، 053، 054، 055، 058 ويتكون من 10 أرقام";
-        }
-      } else {
-        if (!/^\d{7,12}$/.test(cleaned)) {
-          e.phone = "رقم الهاتف غير صحيح";
-        }
+      if (!/^\d{8,15}$/.test(cleaned)) {
+        e.phone = "يرجى كتابة رقم هاتف صحيح";
       }
     }
     
@@ -124,10 +100,13 @@ function OrderForm({
     if (validate()) onSubmit(form);
   };
 
+  const currentDeliveryFee = selectedRegion ? selectedRegion.deliveryFee : 0;
+  const grandTotal = totalPrice + currentDeliveryFee;
+
   return (
-    <form onSubmit={handleSubmit} noValidate dir="rtl" className="flex flex-col h-full">
+    <form onSubmit={handleSubmit} noValidate dir="rtl" className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
       {/* الهيدر */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-black/8 bg-white">
+      <div className="flex-shrink-0 flex items-center gap-3 px-5 py-3.5 border-b border-black/8 bg-white">
         <button
           type="button"
           onClick={onBack}
@@ -139,147 +118,162 @@ function OrderForm({
           </svg>
         </button>
         <div>
-          <h2 className="text-lg font-bold" style={{ fontFamily: "'Lalezar', serif" }}>
+          <h2 className="text-base sm:text-lg font-bold" style={{ fontFamily: "'Lalezar', serif" }}>
             تفاصيل الطلب
           </h2>
-          <p className="text-xs text-black/50">أدخل بياناتك لإتمام الشراء</p>
+          <p className="text-[11px] text-black/50">أدخل بياناتك لإتمام الشراء</p>
         </div>
       </div>
 
-      {/* الحقول */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 bg-[#fffafc]">
+      {/* الحقول مع سكرول داخلي */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3.5 space-y-3 bg-[#fffafc]">
 
         {/* الاسم الأول + اسم العائلة */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2.5">
           <div>
-            <label className="block text-xs font-bold text-black mb-1.5">الاسم الأول *</label>
+            <label className="block text-[11px] font-bold text-black mb-1">الاسم الأول *</label>
             <input
               type="text"
               value={form.firstName}
               onChange={set("firstName")}
               placeholder="محمد"
-              className={`w-full rounded-xl border px-3 py-2.5 text-sm font-medium text-black placeholder:text-black/40 outline-none transition-colors ${
+              className={`w-full rounded-xl border px-3 py-2 text-xs sm:text-sm font-medium text-black placeholder:text-black/40 outline-none transition-colors ${
                 errors.firstName ? "border-red-400 bg-red-50" : "border-black/20 bg-white focus:border-black/60"
               }`}
             />
-            {errors.firstName && <p className="mt-1 text-[10px] text-red-600 font-semibold">{errors.firstName}</p>}
+            {errors.firstName && <p className="mt-0.5 text-[9px] text-red-600 font-semibold">{errors.firstName}</p>}
           </div>
           <div>
-            <label className="block text-xs font-bold text-black mb-1.5">اسم العائلة *</label>
+            <label className="block text-[11px] font-bold text-black mb-1">اسم العائلة *</label>
             <input
               type="text"
               value={form.lastName}
               onChange={set("lastName")}
               placeholder="العمر"
-              className={`w-full rounded-xl border px-3 py-2.5 text-sm font-medium text-black placeholder:text-black/40 outline-none transition-colors ${
+              className={`w-full rounded-xl border px-3 py-2 text-xs sm:text-sm font-medium text-black placeholder:text-black/40 outline-none transition-colors ${
                 errors.lastName ? "border-red-400 bg-red-50" : "border-black/20 bg-white focus:border-black/60"
               }`}
             />
-            {errors.lastName && <p className="mt-1 text-[10px] text-red-600 font-semibold">{errors.lastName}</p>}
+            {errors.lastName && <p className="mt-0.5 text-[9px] text-red-600 font-semibold">{errors.lastName}</p>}
           </div>
         </div>
 
-        {/* المنطقة */}
+        {/* اختيار المنطقة (ضفة / قدس / داخل) */}
         <div>
-          <label className="block text-xs font-bold text-black mb-1.5">المنطقة *</label>
-          <div className="relative">
-            <select
-              value={form.region}
-              onChange={set("region")}
-              className={`w-full appearance-none rounded-xl border px-3 py-2.5 text-sm font-medium text-black outline-none transition-colors bg-white cursor-pointer ${
-                errors.region ? "border-red-400 bg-red-50" : "border-black/20 focus:border-black/60"
-              } ${!form.region ? "text-black/40" : ""}`}
-            >
-              <option value="" disabled>اختر منطقتك...</option>
-              {(Object.keys(REGIONS) as RegionKey[]).map((r) => (
-                <option key={r} value={r}>{REGIONS[r].flag} {r}</option>
-              ))}
-            </select>
-            <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black/60" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M3 5l4 4 4-4" />
-            </svg>
+          <label className="block text-[11px] font-bold text-black mb-1">المنطقة *</label>
+          <div className="grid grid-cols-3 gap-2">
+            {(Object.keys(REGIONS) as RegionKey[]).map((r) => {
+              const reg = REGIONS[r];
+              const isSelected = form.region === r;
+              return (
+                <button
+                  type="button"
+                  key={r}
+                  onClick={() => {
+                    setForm((prev) => ({
+                      ...prev,
+                      region: r,
+                      deliveryFee: reg.deliveryFee,
+                    }));
+                    setErrors((prev) => ({ ...prev, region: "" }));
+                  }}
+                  className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all duration-200 text-center ${
+                    isSelected
+                      ? "border-black bg-black text-white shadow-md scale-[1.02]"
+                      : "border-black/15 bg-white text-black hover:border-black/40 hover:bg-neutral-50"
+                  }`}
+                >
+                  <span className="text-sm mb-0.5">{reg.flag}</span>
+                  <span className="text-xs font-bold leading-tight">{reg.label}</span>
+                  <span
+                    className={`text-[9px] mt-1 font-semibold px-1.5 py-0.5 rounded-full ${
+                      isSelected ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-600"
+                    }`}
+                  >
+                    +{reg.deliveryFee} ₪ توصيل
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          {errors.region && <p className="mt-1 text-[10px] text-red-600 font-semibold">{errors.region}</p>}
+          {errors.region && <p className="mt-0.5 text-[9px] text-red-600 font-semibold">{errors.region}</p>}
         </div>
 
-        {/* المدينة — تظهر فقط بعد اختيار المنطقة */}
-        {form.region && (
-          <div
-            className="overflow-hidden transition-all duration-300"
-            style={{ animation: "slideDown 0.25s ease-out" }}
-          >
-            <label className="block text-xs font-bold text-black mb-1.5">المدينة *</label>
-            <div className="relative">
-              <select
-                value={form.city}
-                onChange={set("city")}
-                className={`w-full appearance-none rounded-xl border px-3 py-2.5 text-sm font-medium text-black outline-none transition-colors bg-white cursor-pointer ${
-                  errors.city ? "border-red-400 bg-red-50" : "border-black/20 focus:border-black/60"
-                } ${!form.city ? "text-black/40" : ""}`}
-              >
-                <option value="" disabled>اختر المدينة...</option>
-                {REGIONS[form.region].cities.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black/60" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M3 5l4 4 4-4" />
-              </svg>
-            </div>
-            {errors.city && <p className="mt-1 text-[10px] text-red-600 font-semibold">{errors.city}</p>}
-          </div>
-        )}
+        {/* اسم المدينة / العنوان */}
+        <div>
+          <label className="block text-[11px] font-bold text-black mb-1">اسم المدينة / البلدة والعنوان *</label>
+          <input
+            type="text"
+            value={form.city}
+            onChange={set("city")}
+            placeholder={
+              selectedRegion
+                ? selectedRegion.placeholderCity
+                : "اكتب اسم مدينتك أو بلدتك والعنوان بالتفصيل"
+            }
+            className={`w-full rounded-xl border px-3 py-2 text-xs sm:text-sm font-medium text-black placeholder:text-black/40 outline-none transition-colors ${
+              errors.city ? "border-red-400 bg-red-50" : "border-black/20 bg-white focus:border-black/60"
+            }`}
+          />
+          {errors.city && <p className="mt-0.5 text-[9px] text-red-600 font-semibold">{errors.city}</p>}
+        </div>
 
         {/* رقم الهاتف */}
         <div>
-          <label className="block text-xs font-bold text-black mb-1.5">رقم الهاتف *</label>
-          <div className="flex gap-2">
-            {/* كود المنطقة */}
-            <div
-              className={`flex-shrink-0 flex items-center gap-1.5 rounded-xl border px-3 py-2.5 font-bold bg-[#f0f0f0] border-black/20 transition-all duration-300 ${
-                form.region ? "min-w-[88px]" : "min-w-[60px]"
-              }`}
-            >
-              {form.region ? (
-                <>
-                  <span className="text-base">{selectedRegion?.flag}</span>
-                  <span className="text-black text-xs font-bold">{selectedRegion?.code}</span>
-                </>
-              ) : (
-                <span className="text-black/40 text-xs font-bold">+xxx</span>
-              )}
-            </div>
-            {/* حقل الرقم */}
-            <div className="flex-1">
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={form.phone}
-                onChange={set("phone")}
-                placeholder="599 000 000"
-                className={`w-full rounded-xl border px-3 py-2.5 text-sm font-medium text-black placeholder:text-black/40 outline-none transition-colors ${
-                  errors.phone ? "border-red-400 bg-red-50" : "border-black/20 bg-white focus:border-black/60"
-                }`}
-              />
-            </div>
-          </div>
-          {errors.phone && <p className="mt-1 text-[10px] text-red-600 font-semibold">{errors.phone}</p>}
+          <label className="block text-[11px] font-bold text-black mb-1">رقم الهاتف *</label>
+          <input
+            type="tel"
+            inputMode="numeric"
+            value={form.phone}
+            onChange={set("phone")}
+            placeholder="مثال: 0599000000 أو 0520000000"
+            className={`w-full rounded-xl border px-3 py-2 text-xs sm:text-sm font-medium text-black placeholder:text-black/40 outline-none transition-colors ${
+              errors.phone ? "border-red-400 bg-red-50" : "border-black/20 bg-white focus:border-black/60"
+            }`}
+          />
+          {errors.phone && <p className="mt-0.5 text-[9px] text-red-600 font-semibold">{errors.phone}</p>}
+        </div>
+
+        {/* ملاحظات إضافية (نمرة الخاتم، تغليف هدية...) */}
+        <div>
+          <label className="block text-[11px] font-bold text-black mb-1">
+            ملاحظات إضافية (اختياري)
+          </label>
+          <textarea
+            rows={2}
+            value={form.notes || ""}
+            onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+            placeholder="مثال: قياس الخاتم (مثلاً: 7)، طلب تغليف هدية، توصيل بعد الساعة 4..."
+            className="w-full rounded-xl border border-black/20 bg-white px-3 py-2 text-xs sm:text-sm font-medium text-black placeholder:text-black/40 outline-none transition-colors focus:border-black/60 resize-none"
+          />
         </div>
       </div>
 
-      {/* الفوتر */}
-      <div className="border-t border-black/8 bg-white px-5 py-4 space-y-3">
-        <div className="rounded-2xl bg-[#fff5f8] p-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-black/60">الإجمالي</span>
-            <span className="font-bold text-base">{totalPrice.toFixed(0)} ₪</span>
+      {/* الفوتر الثابت والمضمون في الأسفل */}
+      <div className="flex-shrink-0 border-t border-black/8 bg-white px-5 py-3 space-y-2 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+        <div className="rounded-xl bg-[#fff5f8] p-2.5 space-y-1">
+          <div className="flex items-center justify-between text-xs text-black/70">
+            <span>مجموع المنتجات</span>
+            <span className="font-semibold">{totalPrice.toFixed(0)} ₪</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-black/70">
+            <span>سعر التوصيل {selectedRegion ? `(${selectedRegion.label})` : ""}</span>
+            <span className="font-semibold">
+              {selectedRegion ? `+${selectedRegion.deliveryFee} ₪` : "اختر المنطقة أعلاه"}
+            </span>
+          </div>
+          <div className="h-px bg-black/10 my-0.5" />
+          <div className="flex items-center justify-between text-xs sm:text-sm">
+            <span className="font-bold text-black">المجموع الكلي</span>
+            <span className="font-bold text-sm sm:text-base text-[#E0457D]">{grandTotal.toFixed(0)} ₪</span>
           </div>
         </div>
         <button
           type="submit"
-          className="w-full py-3 rounded-2xl bg-black text-white font-semibold text-sm hover:bg-neutral-800 active:scale-95 transition-all"
+          className="w-full py-3 rounded-xl bg-black text-white font-bold text-sm hover:bg-neutral-800 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2"
         >
-          تأكيد الطلب ✓
+          <span>تأكيد الطلب</span>
+          <span>✓</span>
         </button>
       </div>
     </form>
@@ -385,13 +379,18 @@ function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
         quantity: item.quantity,
       }));
 
-      const fullPhone = `${data.region ? REGIONS[data.region].code : ""}${data.phone.replace(/^0+/, "")}`;
-      const fullCity = `${data.region} - ${data.city}`;
+      const deliveryFee = data.deliveryFee || (data.region ? REGIONS[data.region].deliveryFee : 0);
+      const regionLabel = data.region ? REGIONS[data.region].label : "";
+      const fullCity = `${regionLabel} - ${data.city}`;
+      const cleanPhone = data.phone.trim();
+      const customerNotes = data.notes?.trim() || "";
 
       const res = await createCustomerOrder({
         customer_name: `${data.firstName} ${data.lastName}`,
-        customer_phone: fullPhone,
+        customer_phone: cleanPhone,
         customer_city: fullCity,
+        notes: customerNotes,
+        delivery_fee: deliveryFee,
         items: mappedItems,
       });
 
@@ -421,7 +420,7 @@ function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
       <div
         ref={drawerRef}
         dir="rtl"
-        className={`fixed top-[4.5rem] left-4 right-4 z-50 flex flex-col min-h-[320px] max-h-[calc(100vh-6rem)] w-auto md:absolute md:top-full md:right-0 md:left-auto md:w-[340px] md:max-h-[calc(100vh-5rem)] bg-[#fffafc] shadow-2xl border border-black/10 rounded-[32px] overflow-hidden transition-all duration-200 ease-out ${
+        className={`fixed top-14 sm:top-[4.5rem] left-3 right-3 sm:left-4 sm:right-4 bottom-3 sm:bottom-4 z-50 flex flex-col max-h-[calc(100dvh-4.5rem)] md:bottom-auto md:max-h-[calc(100vh-5rem)] w-auto md:absolute md:top-full md:right-0 md:left-auto md:w-[350px] bg-[#fffafc] shadow-2xl border border-black/10 rounded-[28px] sm:rounded-[32px] overflow-hidden transition-all duration-200 ease-out ${
           open ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
         }`}
       >

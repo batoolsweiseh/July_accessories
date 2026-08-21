@@ -12,6 +12,7 @@ type Product = {
   subcategory: string;
   image: string;
   isFeatured?: boolean;
+  inStock?: boolean;
   isNew?: boolean;
   isTrending?: boolean;
 };
@@ -87,6 +88,7 @@ export default function CategoryClient({
   const { addToCart } = useCart();
 
   const handleBuy = useCallback(async (product: Product) => {
+    if (product.inStock === false) return;
     if (addingId === product.id) return;
     setAddingId(product.id);
     await addToCart(product.id, 1, {
@@ -265,6 +267,11 @@ export default function CategoryClient({
               <div className="relative aspect-square w-full overflow-hidden bg-[#FFF3F7] flex items-center justify-center">
                 {/* شارات المنتج */}
                 <div className="absolute top-2.5 right-2.5 flex flex-col gap-1 z-10" dir="rtl">
+                  {product.inStock === false && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-neutral-900 text-white px-2 py-0.5 text-[7px] sm:text-[8px] font-bold uppercase tracking-wider shadow-lg">
+                      نفدت الكمية
+                    </span>
+                  )}
                   {product.isFeatured && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-amber-900 shadow-lg shadow-amber-200/70">
                       <span className="text-[10px]">★</span> مميز
@@ -288,7 +295,9 @@ export default function CategoryClient({
                 <img
                   src={product.image || "/product-placeholder.png"}
                   alt={product.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className={`w-full h-full object-cover transition-transform duration-500 ${
+                    product.inStock === false ? "opacity-60 grayscale-[30%]" : "group-hover:scale-105"
+                  }`}
                   loading="lazy"
                   onError={(e) => { (e.target as HTMLImageElement).src = "/product-placeholder.png"; }}
                 />
@@ -301,30 +310,36 @@ export default function CategoryClient({
                   {product.name}
                 </h3>
                 <div className="mt-auto pt-1 border-t border-black/[0.04]">
-                  <span className="block font-mono text-[6px] font-bold text-charcoal mb-1.5">
+                  <span className={`block font-mono text-[6px] font-bold mb-1.5 ${product.inStock === false ? 'text-black/40' : 'text-charcoal'}`}>
                     {product.price} ₪
                   </span>
                   <div className="flex items-center justify-between gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleBuy(product)}
-                      disabled={addingId === product.id}
-                      className={`inline-flex h-4 flex-1 items-center justify-center rounded-lg text-[5px] font-semibold transition-all duration-200 active:scale-95 ${
-                        doneId === product.id
-                          ? 'bg-green-500 text-white'
-                          : 'bg-charcoal text-white hover:bg-neutral-800'
-                      } disabled:opacity-60`}
-                    >
-                      {addingId === product.id ? (
-                        <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4" />
-                        </svg>
-                      ) : doneId === product.id ? (
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                          <path d="M20 6L9 17l-5-5" />
-                        </svg>
-                      ) : "اشتري"}
-                    </button>
+                    {product.inStock === false ? (
+                      <div className="flex-1 text-center rounded-lg bg-neutral-200 text-neutral-500 text-[6px] font-bold py-1 select-none">
+                        نفد
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleBuy(product)}
+                        disabled={addingId === product.id}
+                        className={`inline-flex h-4 flex-1 items-center justify-center rounded-lg text-[5px] font-semibold transition-all duration-200 active:scale-95 ${
+                          doneId === product.id
+                            ? 'bg-green-500 text-white'
+                            : 'bg-charcoal text-white hover:bg-neutral-800'
+                        } disabled:opacity-60`}
+                      >
+                        {addingId === product.id ? (
+                          <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4" />
+                          </svg>
+                        ) : doneId === product.id ? (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                        ) : "اشتري"}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={(e) => {

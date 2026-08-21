@@ -138,6 +138,7 @@ export default async function CategoryPage({
       subcategory: subcategoryTitle,
       image: p.image_url || "/product-placeholder.png",
       isFeatured: !!p.is_featured,
+      inStock: p.in_stock !== false,
       isNew,
       isTrending,
     };

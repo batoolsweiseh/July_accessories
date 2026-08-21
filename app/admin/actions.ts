@@ -257,19 +257,28 @@ export async function createCustomerOrder(order: {
   customer_name: string;
   customer_phone: string;
   customer_city: string;
+  notes?: string;
+  delivery_fee?: number;
   items: { id: string; name: string; price: number; quantity: number }[];
 }) {
   try {
-    // 1. تجميع الأسماء والكميات في نص واحد
-    const productName = order.items
-      .map((item) => `${item.name} (${item.quantity} قطع)`)
-      .join(" ، ");
+    // 1. تجميع الأصناف بطريقة واضحة ومنفصلة لكل صنف في سطر
+    const itemsLines = order.items.map(
+      (item) => `• ${item.name} (${item.quantity} قطع) - ${(item.price * item.quantity).toFixed(0)} ₪`
+    );
 
-    // 2. حساب المجموع الكلي لجميع القطع
-    const totalPrice = order.items.reduce(
+    let productName = itemsLines.join("\n");
+    if (order.notes && order.notes.trim()) {
+      productName += `\n\n📝 ملاحظة العميل:\n${order.notes.trim()}`;
+    }
+
+    // 2. حساب المجموع الكلي لجميع القطع مع التوصيل
+    const itemsTotal = order.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
+    const deliveryFee = Number(order.delivery_fee) || 0;
+    const totalPrice = itemsTotal + deliveryFee;
 
     // 3. تحديد رقم المنتج (إذا كانت قطعة واحدة فقط نرسل المعرف، وإلا نرسل null)
     const productId = order.items.length === 1 ? order.items[0].id : null;

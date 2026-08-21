@@ -49,14 +49,14 @@ function drawWheel(canvas: HTMLCanvasElement, segments: Segment[], rotation: num
 
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const r = cx - 8;
+  const r = cx - 12;
   const arc = (2 * Math.PI) / segments.length;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.18)";
-  ctx.shadowBlur = 24;
+  ctx.shadowColor = "rgba(0,0,0,0.2)";
+  ctx.shadowBlur = 30;
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, 2 * Math.PI);
   ctx.fillStyle = "#fff";
@@ -73,30 +73,47 @@ function drawWheel(canvas: HTMLCanvasElement, segments: Segment[], rotation: num
     ctx.closePath();
     ctx.fillStyle = seg.color;
     ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 3;
     ctx.stroke();
 
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(start + arc / 2);
     ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
     const textColor = seg.textColor || getContrastColor(seg.color);
     ctx.fillStyle = textColor;
-    ctx.font = `bold ${Math.max(10, Math.min(15, 220 / segments.length))}px 'Lalezar', sans-serif`;
-    ctx.shadowColor = textColor !== "#ffffff" ? "transparent" : "rgba(0,0,0,0.25)";
-    ctx.shadowBlur = 4;
-    ctx.fillText(seg.label, r - 10, 5);
+    
+    // حجم خط مناسب وواضح جداً بحجم الكانفاس الجديد
+    const fontSize = Math.max(16, Math.min(24, Math.floor(480 / segments.length)));
+    ctx.font = `bold ${fontSize}px 'IBM Plex Sans Arabic', 'Lalezar', sans-serif`;
+    
+    if (textColor === "#ffffff") {
+      ctx.shadowColor = "rgba(0,0,0,0.45)";
+      ctx.shadowBlur = 5;
+    } else {
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+    }
+    ctx.fillText(seg.label, r - 25, 0);
     ctx.restore();
   });
 
+  // المركز الخارجي
   ctx.beginPath();
-  ctx.arc(cx, cy, 22, 0, 2 * Math.PI);
+  ctx.arc(cx, cy, 36, 0, 2 * Math.PI);
   ctx.fillStyle = "#111";
   ctx.fill();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 4;
   ctx.stroke();
+
+  // نقطة المركز الداخلية
+  ctx.beginPath();
+  ctx.arc(cx, cy, 14, 0, 2 * Math.PI);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
 }
 
 export default function LuckyWheel() {
@@ -272,32 +289,32 @@ export default function LuckyWheel() {
           <div className="relative flex flex-col items-center gap-5">
             {/* المؤشر ▼ */}
             <div className="relative">
-              <div className="absolute left-1/2 -translate-x-1/2 z-10" style={{ top: -18 }}>
-                <svg width="28" height="28" viewBox="0 0 28 28">
+              <div className="absolute left-1/2 -translate-x-1/2 z-10" style={{ top: -22 }}>
+                <svg width="36" height="36" viewBox="0 0 28 28">
                   <polygon
                     points="14,26 2,2 26,2"
                     fill="#111"
                     stroke="#fff"
-                    strokeWidth="2"
+                    strokeWidth="2.5"
                     strokeLinejoin="round"
                   />
                 </svg>
               </div>
 
               {segments.length === 0 ? (
-                <div className="flex h-[160px] w-[160px] sm:h-[210px] sm:w-[210px] items-center justify-center rounded-full border-4 border-dashed border-black/20 bg-[#fafafa]">
+                <div className="flex h-[320px] w-[320px] sm:h-[400px] sm:w-[400px] md:h-[460px] md:w-[460px] items-center justify-center rounded-full border-4 border-dashed border-black/20 bg-[#fafafa]">
                   <div className="text-center px-4">
-                    <div className="text-4xl mb-2">🎡</div>
-                    <p className="text-xs text-black/40 font-medium">الدولاب فارغ</p>
-                    <p className="text-[10px] text-black/30 mt-1">المشرف لم يضف خيارات بعد</p>
+                    <div className="text-5xl mb-2">🎡</div>
+                    <p className="text-base text-black/40 font-semibold">الدولاب فارغ</p>
+                    <p className="text-xs text-black/30 mt-1">المشرف لم يضف خيارات بعد</p>
                   </div>
                 </div>
               ) : (
                 <canvas
                   ref={canvasRefCb}
-                  width={210}
-                  height={210}
-                  className="h-[160px] w-[160px] sm:h-[210px] sm:w-[210px] drop-shadow-2xl"
+                  width={700}
+                  height={700}
+                  className="h-[320px] w-[320px] sm:h-[400px] sm:w-[400px] md:h-[460px] md:w-[460px] drop-shadow-2xl"
                   style={{ borderRadius: "50%" }}
                 />
               )}

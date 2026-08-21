@@ -173,6 +173,11 @@ export function useCart() {
           };
         }
 
+        if (!product || product.in_stock === false) {
+          alert("عذراً، هذا المنتج نفدت كميته ولا يمكن طلبه حالياً.");
+          return;
+        }
+
         const current = readCart();
         const existing = current.items.find((i) => i.id === normalizedId);
 

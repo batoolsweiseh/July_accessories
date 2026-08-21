@@ -311,6 +311,67 @@ function DeleteConfirmDialog({
   );
 }
 
+/* ─── مكوّن عرض أصناف وملاحظات الطلب ─── */
+function OrderProductsCell({ text }: { text: string }) {
+  if (!text) return <span className="text-slate-400 text-xs">لا يوجد أصناف</span>;
+
+  const rawLines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const items: string[] = [];
+  let note: string | null = null;
+  let inNote = false;
+
+  for (const line of rawLines) {
+    if (line.startsWith("📝") || line.includes("ملاحظة العميل") || line.startsWith("ملاحظة:")) {
+      inNote = true;
+      const cleanLine = line.replace(/^📝\s*/, "").replace(/^ملاحظة العميل:?\s*/, "").trim();
+      if (cleanLine) {
+        note = (note ? note + "\n" : "") + cleanLine;
+      }
+    } else if (inNote) {
+      note = (note ? note + "\n" : "") + line;
+    } else {
+      if (line.includes(" ، ")) {
+        items.push(...line.split(" ، "));
+      } else {
+        items.push(line);
+      }
+    }
+  }
+
+  return (
+    <div className="space-y-1.5 min-w-[220px] max-w-sm py-1" dir="rtl">
+      {/* قائمة الأصناف */}
+      <div className="space-y-1">
+        {items.map((item, idx) => {
+          const cleanItem = item.replace(/^[•\-\*]\s*/, "").trim();
+          return (
+            <div
+              key={idx}
+              className="flex items-center gap-2 bg-slate-50 border border-slate-200/90 rounded-lg px-2.5 py-1 text-xs text-neutral-900 font-semibold leading-normal shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
+            >
+              <span className="text-[#E0457D] text-sm leading-none">•</span>
+              <span className="flex-1">{cleanItem}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* صندوق ملاحظات العميل */}
+      {note && (
+        <div className="rounded-xl bg-amber-50 border border-amber-300/80 p-2 text-xs text-amber-950 leading-relaxed shadow-sm">
+          <div className="flex items-center gap-1 font-bold text-amber-900 mb-0.5 text-[11px]">
+            <span>📝</span>
+            <span>ملاحظة العميل:</span>
+          </div>
+          <p className="whitespace-pre-line text-[11px] font-medium text-amber-900/90 pr-4">
+            {note}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Orders Admin Section ─── */
 function OrdersAdminSection({
   orders,
@@ -364,7 +425,7 @@ function OrdersAdminSection({
               <tr className="bg-slate-50 text-slate-500 text-xs font-bold border-b border-slate-100">
                 <th className="px-6 py-4 text-right">العميل</th>
                 <th className="px-6 py-4 text-right">العنوان والمدينة</th>
-                <th className="px-6 py-4 text-right">المنتج المطلوب</th>
+                <th className="px-6 py-4 text-right">الأصناف والملاحظات</th>
                 <th className="px-6 py-4 text-right">الإجمالي</th>
                 <th className="px-6 py-4 text-right">التاريخ</th>
                 <th className="px-6 py-4 text-right">حالة الطلب</th>
@@ -409,9 +470,9 @@ function OrdersAdminSection({
                       {order.customer_city || "غير محدد"}
                     </td>
 
-                    {/* المنتج */}
-                    <td className="px-6 py-4 text-neutral-900 font-medium">
-                      {order.product_name}
+                    {/* المنتج والملاحظات المنظمة */}
+                    <td className="px-6 py-4 text-neutral-900 font-medium align-top">
+                      <OrderProductsCell text={order.product_name} />
                     </td>
 
                     {/* الإجمالي */}

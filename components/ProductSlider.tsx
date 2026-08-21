@@ -44,6 +44,7 @@ function ProductCard({ product }: { product: Product }) {
 
   const handleBuy = async (e: React.MouseEvent) => {
     e.preventDefault();
+    if (product.inStock === false) return;
     if (addedState !== "idle") return;
     setAddedState("loading");
     await addToCart(String(product.id), 1, {
@@ -51,7 +52,7 @@ function ProductCard({ product }: { product: Product }) {
       name: product.name,
       price: Number(String(product.price).replace(/[^\d.]/g, "")) || 0,
       image_url: imgSrc,
-      in_stock: product.inStock !== false,
+      in_stock: true,
       category_slug: product.category,
     });
     setAddedState("done");
