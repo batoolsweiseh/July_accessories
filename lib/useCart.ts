@@ -144,7 +144,8 @@ export function useCart() {
   }, [syncCart, validateCartItems]);
 
   const items = cart.items ?? [];
-  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
+  const totalItems = items.length; // عدد المنتجات المختلفة في السلة
+  const totalQuantity = items.reduce((sum, i) => sum + i.quantity, 0); // مجموع عدد القطع الكلي
   const totalPrice = items.reduce(
     (sum, i) => sum + i.quantity * Number(i.product.price),
     0
@@ -237,6 +238,7 @@ export function useCart() {
     cart,
     loading,
     totalItems,
+    totalQuantity,
     totalPrice,
     addToCart,
     updateQuantity,
