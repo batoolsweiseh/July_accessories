@@ -66,7 +66,7 @@ export default function ImageLightbox({
         </button>
 
         {/* حاوية الصورة */}
-        <div className="relative w-full aspect-square max-h-[75vh] bg-neutral-950 flex items-center justify-center overflow-hidden">
+        <div className="relative w-full aspect-square max-h-[85vh] bg-neutral-950 flex items-center justify-center overflow-hidden">
           <Image
             src={src}
             alt={alt}
@@ -77,22 +77,6 @@ export default function ImageLightbox({
             priority
           />
         </div>
-
-        {/* تفاصيل المنتج */}
-        {(title || price !== undefined) && (
-          <div className="w-full px-5 py-3.5 bg-neutral-900/95 border-t border-white/10 flex items-center justify-between gap-3">
-            {title && (
-              <p className="text-white text-sm sm:text-base font-semibold truncate">
-                {title}
-              </p>
-            )}
-            {price !== undefined && (
-              <span className="text-[#FF7FA8] font-mono text-sm sm:text-base font-bold shrink-0">
-                {typeof price === "number" ? `${price} ₪` : price}
-              </span>
-            )}
-          </div>
-        )}
       </div>
     </div>,
     document.body
