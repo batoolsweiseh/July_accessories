@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useCart } from "@/lib/useCart";
+import { ProductPiece } from "@/lib/productVariants";
 
 export type QuickViewProduct = {
   id: string | number;
@@ -17,6 +18,7 @@ export type QuickViewProduct = {
   isNew?: boolean;
   isTrending?: boolean;
   hasColors?: boolean;
+  pieces?: ProductPiece[];
 };
 
 interface ProductQuickViewModalProps {
@@ -36,6 +38,7 @@ export default function ProductQuickViewModal({
 }: ProductQuickViewModalProps) {
   const [mounted, setMounted] = useState(false);
   const [selectedColor, setSelectedColor] = useState<"ذهبي" | "فضي">("ذهبي");
+  const [selectedPiece, setSelectedPiece] = useState<ProductPiece | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
   const [fav, setFav] = useState(isFavorite);
@@ -46,10 +49,15 @@ export default function ProductQuickViewModal({
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && product) {
       setQuantity(1);
       setSelectedColor("ذهبي");
       setFav(isFavorite);
+      if (product.pieces && product.pieces.length > 0) {
+        setSelectedPiece(product.pieces[0]);
+      } else {
+        setSelectedPiece(null);
+      }
     }
   }, [isOpen, isFavorite, product]);
 
@@ -74,24 +82,41 @@ export default function ProductQuickViewModal({
     }
   };
 
+  if (!mounted || !isOpen || !product) return null;
+
+  const defaultNumericPrice =
+    typeof product.price === "number"
+      ? product.price
+      : parseFloat(String(product.price).replace(/[^\d.]/g, "")) || 0;
+
+  const currentPrice = selectedPiece ? selectedPiece.price : defaultNumericPrice;
+
+  // هل تتوفر خيارات ألوان للقطعة الحالية أو للمنتج
+  const showColors = selectedPiece
+    ? !!selectedPiece.hasColors
+    : !!product.hasColors;
+
   const handleAddToCart = async () => {
     if (!product || product.inStock === false) return;
     setAdding(true);
     try {
-      const numericPrice =
-        typeof product.price === "number"
-          ? product.price
-          : parseFloat(String(product.price).replace(/[^\d.]/g, "")) || 0;
+      const finalPrice = currentPrice;
+      const finalName =
+        selectedPiece && selectedPiece.name !== product.name
+          ? `${product.name} (${selectedPiece.name})`
+          : product.name;
 
-      const colorToSave = product.hasColors ? selectedColor : undefined;
+      const colorToSave = showColors ? selectedColor : undefined;
+      const pieceSuffix = selectedPiece ? `-${selectedPiece.name}` : "";
+      const customCartId = `${product.id}${pieceSuffix}`;
 
       await addToCart(
-        String(product.id),
+        customCartId,
         quantity,
         {
-          id: String(product.id),
-          name: product.name,
-          price: numericPrice,
+          id: customCartId,
+          name: finalName,
+          price: finalPrice,
           image_url: product.image || "/product-placeholder.png",
           in_stock: true,
           category_slug: product.category || "",
@@ -109,13 +134,6 @@ export default function ProductQuickViewModal({
       setAdding(false);
     }
   };
-
-  if (!mounted || !isOpen || !product) return null;
-
-  const numericPrice =
-    typeof product.price === "number"
-      ? product.price
-      : parseFloat(String(product.price).replace(/[^\d.]/g, "")) || 0;
 
   return createPortal(
     <div
@@ -174,10 +192,20 @@ export default function ProductQuickViewModal({
               )}
             </div>
 
-            {/* شارة اللون المختار في زاوية الصورة (تظهر فقط إن كان المنتج به ألوان) */}
-            {product.hasColors && (
-              <div className="absolute bottom-3 right-3 bg-black/75 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md z-10">
-                {selectedColor === "ذهبي" ? "🪙 ذهبي" : "⚪ فضي"}
+            {/* شارة اللون المختار في زاوية الصورة (تظهر فقط إذا كان هناك ألوان) */}
+            {showColors && (
+              <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-md z-10 flex items-center gap-1.5 border border-white/10">
+                {selectedColor === "ذهبي" ? (
+                  <>
+                    <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-amber-600 via-amber-400 to-amber-200 border border-amber-300 shadow-sm flex-shrink-0" />
+                    <span>ذهبي</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-slate-400 via-slate-200 to-white border border-slate-300 shadow-sm flex-shrink-0" />
+                    <span>فضي</span>
+                  </>
+                )}
               </div>
             )}
 
@@ -202,8 +230,13 @@ export default function ProductQuickViewModal({
               <div className="flex items-center gap-2">
                 <span className="text-xs text-neutral-500 font-semibold">السعر:</span>
                 <span className="text-xl sm:text-2xl font-black text-[#00875a] font-mono">
-                  {numericPrice} ₪
+                  {currentPrice} ₪
                 </span>
+                {selectedPiece && (
+                  <span className="text-xs text-neutral-500 font-bold bg-neutral-100 px-2 py-0.5 rounded-lg border border-black/5">
+                    ({selectedPiece.name})
+                  </span>
+                )}
               </div>
             </div>
 
@@ -233,8 +266,46 @@ export default function ProductQuickViewModal({
             </button>
           </div>
 
-          {/* اختيار اللون مع صور مصغرة للمنتج (يظهر فقط إذا كان المنتج مفعّل فيه خيار الألوان) */}
-          {product.hasColors && (
+          {/* ── اختيار القطعة أو الطقم المنفرد (إن وجد خيارات قطع) ── */}
+          {product.pieces && product.pieces.length > 0 && (
+            <div className="space-y-2 pt-1 border-b border-black/5 pb-3">
+              <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-neutral-900">
+                <span>اختر الصنف / القطعة:</span>
+                <span className="text-[#00875a] font-extrabold text-xs sm:text-sm">
+                  {selectedPiece?.name}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {product.pieces.map((piece, idx) => {
+                  const isSelected = selectedPiece?.name === piece.name;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedPiece(piece)}
+                      className={`flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all duration-200 active:scale-95 ${
+                        isSelected
+                          ? "border-[#00875a] bg-[#00875a]/10 text-[#00875a] ring-2 ring-[#00875a]/25 shadow-sm"
+                          : "border-black/15 bg-white text-neutral-700 hover:border-black/30"
+                      }`}
+                    >
+                      <span>{piece.name}</span>
+                      <span
+                        className={`font-mono px-1.5 py-0.5 rounded text-[11px] font-black ${
+                          isSelected ? "bg-[#00875a] text-white" : "bg-neutral-100 text-neutral-800"
+                        }`}
+                      >
+                        {piece.price} ₪
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── اختيار اللون مع صور مصغرة للمنتج ── */}
+          {showColors && (
             <div className="space-y-2.5 pt-1">
               <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-neutral-900">
                 <span>اختر اللون:</span>
@@ -243,9 +314,9 @@ export default function ProductQuickViewModal({
                 </span>
               </div>
 
-              {/* بطاقات مصغرات صور المنتج لكل لون */}
+              {/* بطاقات مصغرات صور المنتج للألوان */}
               <div className="flex items-center gap-3">
-                {/* بطاقة ذهبي مع صورة المنتج */}
+                {/* بطاقة ذهبي */}
                 <button
                   type="button"
                   onClick={() => setSelectedColor("ذهبي")}
@@ -277,7 +348,7 @@ export default function ProductQuickViewModal({
                   )}
                 </button>
 
-                {/* بطاقة فضي مع صورة المنتج */}
+                {/* بطاقة فضي */}
                 <button
                   type="button"
                   onClick={() => setSelectedColor("فضي")}
@@ -349,7 +420,11 @@ export default function ProductQuickViewModal({
                 <circle cx="20" cy="21" r="1" />
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
               </svg>
-              <span>{adding ? "جاري الإضافة..." : `شراء هذا المنتج (${(numericPrice * quantity).toFixed(0)} ₪)`}</span>
+              <span>
+                {adding
+                  ? "جاري الإضافة..."
+                  : `شراء هذا الصنف (${(currentPrice * quantity).toFixed(0)} ₪)`}
+              </span>
             </button>
           </div>
         </div>

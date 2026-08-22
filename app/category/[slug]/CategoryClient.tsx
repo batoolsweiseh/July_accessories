@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import ImageLightbox from "@/components/ImageLightbox";
 import ProductQuickViewModal from "@/components/ProductQuickViewModal";
+import { ProductPiece } from "@/lib/productVariants";
 
 type Product = {
   id: string;
@@ -17,6 +18,7 @@ type Product = {
   isNew?: boolean;
   isTrending?: boolean;
   hasColors?: boolean;
+  pieces?: ProductPiece[];
 };
 
 function getFavorites(): string[] {
@@ -57,9 +59,9 @@ function getSubcategoryImage(subcategory: string) {
     "أطقم ماركات": "/images/atqam-markat.jpg",
     "أطقم ماركة": "/images/atqam-markat.jpg",
     "أطقم نواعم": "/images/atqam-nawaem.png",
-    "حقائب صغيرة": "/images/bags.jpg",
+    "حقائب صغيرة": "/images/small-bags.png",
     "حقائب متوسطة": "/images/medium-bags.png",
-    "حقائب كبيرة": "/images/large-bags.jpg",
+    "حقائب كبيرة": "/images/large-bags.png",
     "ساعات ماركة ستاتي": "/images/saat-markah-stati.png",
     "ساعات ماركة رجالي": "/images/saat-markah-rajali.png",
     "ساعات شبيه ماركة ستاتي": "/images/saat-stati.png",
@@ -431,6 +433,7 @@ export default function CategoryClient({
                 isNew: quickViewProduct.isNew,
                 isTrending: quickViewProduct.isTrending,
                 hasColors: quickViewProduct.hasColors,
+                pieces: quickViewProduct.pieces,
               }
             : null
         }

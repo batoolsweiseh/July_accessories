@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductDetailClient from "@/components/ProductDetailClient";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { parseProductPieces, cleanDescriptionTags, ProductPiece } from "@/lib/productVariants";
 
 type Product = {
   id: number | string;
@@ -18,6 +19,7 @@ type Product = {
   image?: string;
   whatsapp: string;
   hasColors?: boolean;
+  pieces?: ProductPiece[];
 };
 
 async function getProductById(id: string): Promise<Product | undefined> {
@@ -32,13 +34,10 @@ async function getProductById(id: string): Promise<Product | undefined> {
       return undefined;
     }
     const desc = data.description || "";
-    const cleanDesc = desc
-      .replace(/\[tag:new\]/g, "")
-      .replace(/\[tag:trending\]/g, "")
-      .replace(/\[tag:colors\]/g, "")
-      .trim();
+    const cleanDesc = cleanDescriptionTags(desc);
     const isNew = data.is_new || desc.includes("[tag:new]");
     const hasColors = desc.includes("[tag:colors]");
+    const pieces = parseProductPieces(desc);
     return {
       id: data.id,
       name: data.name,
@@ -51,6 +50,7 @@ async function getProductById(id: string): Promise<Product | undefined> {
       image: data.image_url,
       whatsapp: data.whatsapp_message || `https://wa.me/972597287067?text=أريد أطلب: ${data.name}`,
       hasColors,
+      pieces,
     };
   } catch (err) {
     console.error("Error fetching product by ID from Supabase:", err);
@@ -67,13 +67,10 @@ async function getAllProducts(): Promise<Product[]> {
     }
     return data.map((p: any) => {
       const desc = p.description || "";
-      const cleanDesc = desc
-        .replace(/\[tag:new\]/g, "")
-        .replace(/\[tag:trending\]/g, "")
-        .replace(/\[tag:colors\]/g, "")
-        .trim();
+      const cleanDesc = cleanDescriptionTags(desc);
       const isNew = p.is_new || desc.includes("[tag:new]");
       const hasColors = desc.includes("[tag:colors]");
+      const pieces = parseProductPieces(desc);
       return {
         id: p.id,
         name: p.name,
@@ -86,6 +83,7 @@ async function getAllProducts(): Promise<Product[]> {
         image: p.image_url,
         whatsapp: p.whatsapp_message || `https://wa.me/972597287067?text=أريد أطلب: ${p.name}`,
         hasColors,
+        pieces,
       };
     });
   } catch (err) {

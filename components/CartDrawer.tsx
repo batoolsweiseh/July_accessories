@@ -606,13 +606,17 @@ function CartItemRow({
               </p>
               {(item.selectedColor || item.product.selectedColor) && (
                 <span
-                  className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  className={`inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                     (item.selectedColor || item.product.selectedColor) === "ذهبي"
                       ? "bg-amber-100 text-amber-950 border border-amber-300 shadow-sm"
                       : "bg-slate-100 text-slate-900 border border-slate-300 shadow-sm"
                   }`}
                 >
-                  <span>{(item.selectedColor || item.product.selectedColor) === "ذهبي" ? "🪙" : "⚪"}</span>
+                  {(item.selectedColor || item.product.selectedColor) === "ذهبي" ? (
+                    <span className="w-2 h-2 rounded-full bg-gradient-to-tr from-amber-600 via-amber-400 to-amber-200 border border-amber-400 flex-shrink-0" />
+                  ) : (
+                    <span className="w-2 h-2 rounded-full bg-gradient-to-tr from-slate-400 via-slate-200 to-white border border-slate-300 flex-shrink-0" />
+                  )}
                   <span>اللون: {item.selectedColor || item.product.selectedColor}</span>
                 </span>
               )}

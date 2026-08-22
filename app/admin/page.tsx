@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import ImageCropperModal from "@/components/ImageCropperModal";
+import { parseProductPieces, cleanDescriptionTags, ProductPiece } from "@/lib/productVariants";
 import {
   fetchAdminData,
   createProduct,
@@ -537,6 +538,7 @@ export default function AdminPage() {
   const [isNew, setIsNew] = useState(false);
   const [isTrending, setIsTrending] = useState(false);
   const [hasColors, setHasColors] = useState(false);
+  const [pieces, setPieces] = useState<{ name: string; price: string | number; hasColors?: boolean }[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [cropperOpen, setCropperOpen] = useState(false);
@@ -645,6 +647,7 @@ export default function AdminPage() {
     setIsNew(false);
     setIsTrending(false);
     setHasColors(false);
+    setPieces([]);
     setImageFile(null);
     setImagePreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -655,9 +658,9 @@ export default function AdminPage() {
     setEditingProduct(product);
     setName(product.name);
     setPrice(String(product.price));
-    // Strip tags from description
+    // Strip tags and extract pieces
     const rawDesc = product.description || "";
-    setDescription(rawDesc.replace(/\s*\[tag:(new|trending|colors)\]/g, "").trim());
+    setDescription(cleanDescriptionTags(rawDesc));
     setCategorySlug(product.category_slug);
     setSubcategoryId(product.subcategory_id || "");
     setIsFeatured(product.is_featured);
@@ -665,6 +668,7 @@ export default function AdminPage() {
     setIsNew(rawDesc.includes("[tag:new]"));
     setIsTrending(rawDesc.includes("[tag:trending]"));
     setHasColors(rawDesc.includes("[tag:colors]"));
+    setPieces(parseProductPieces(rawDesc));
     setImageFile(null);
     setImagePreviewUrl(product.image_url || null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -693,6 +697,7 @@ export default function AdminPage() {
     formData.append("isNew", String(isNew));
     formData.append("isTrending", String(isTrending));
     formData.append("hasColors", String(hasColors));
+    formData.append("piecesJson", JSON.stringify(pieces.filter((p) => p.name.trim() && !isNaN(Number(p.price)))));
     if (imageFile) formData.append("imageFile", imageFile);
 
     let result;
@@ -1097,6 +1102,91 @@ export default function AdminPage() {
                         <span className="text-xs font-semibold text-slate-700">{label}</span>
                       </label>
                     ))}
+                  </div>
+
+                  {/* ── قطع وأصناف الطقم (اختياري للأطقم والمجموعات) ── */}
+                  <div className="space-y-3 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-800">
+                          ✨ قطع وأصناف الطقم (اختياري)
+                        </label>
+                        <p className="text-[11px] text-slate-500">
+                          أضف أسعار القطع المنفردة داخل هذا الطقم
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPieces((prev) => [...prev, { name: "", price: (price || "") as any, hasColors: false }])}
+                        className="text-xs font-bold text-[#E0457D] hover:bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 transition"
+                      >
+                        + إضافة قطعة
+                      </button>
+                    </div>
+
+                    {pieces.length > 0 && (
+                      <div className="space-y-2 max-h-48 overflow-y-auto p-1">
+                        {pieces.map((piece, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-2 rounded-xl"
+                          >
+                            <input
+                              type="text"
+                              value={piece.name}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setPieces((prev) =>
+                                  prev.map((p, i) => (i === index ? { ...p, name: val } : p))
+                                );
+                              }}
+                              placeholder="اسم القطعة (مثال: اسوارة كارتير)"
+                              className="flex-1 text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-black"
+                            />
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={piece.price ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setPieces((prev) =>
+                                    prev.map((p, i) => (i === index ? { ...p, price: val } : p))
+                                  );
+                                }}
+                                placeholder="السعر"
+                                className="w-20 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white font-mono focus:outline-none focus:border-black text-center"
+                              />
+                              <span className="text-[10px] text-slate-500 font-bold">₪</span>
+                            </div>
+                            <label className="flex items-center gap-1.5 cursor-pointer select-none bg-white px-2 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300">
+                              <input
+                                type="checkbox"
+                                checked={!!piece.hasColors}
+                                onChange={(e) => {
+                                  const val = e.target.checked;
+                                  setPieces((prev) =>
+                                    prev.map((p, i) => (i === index ? { ...p, hasColors: val } : p))
+                                  );
+                                }}
+                                className="rounded text-neutral-900 focus:ring-neutral-900 border-slate-300 w-3.5 h-3.5"
+                              />
+                              <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+                                خيارات ألوان (ذهبي / فضي)
+                              </span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setPieces((prev) => prev.filter((_, i) => i !== index))}
+                              className="text-rose-500 hover:text-rose-700 hover:bg-rose-100 p-1.5 rounded-lg text-xs"
+                              title="حذف القطعة"
+                            >
+                              <i className="fa-solid fa-trash-can" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Submit */}

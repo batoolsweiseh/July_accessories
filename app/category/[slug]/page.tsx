@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { parseProductPieces } from "@/lib/productVariants";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CategoryClient from "./CategoryClient";
@@ -130,6 +131,7 @@ export default async function CategoryPage({
     const isNew = desc.includes("[tag:new]");
     const isTrending = desc.includes("[tag:trending]");
     const hasColors = desc.includes("[tag:colors]");
+    const pieces = parseProductPieces(desc);
     const subcategoryTitle = subcategoryMap.get(p.subcategory_id) || "عام";
 
     return {
@@ -143,6 +145,7 @@ export default async function CategoryPage({
       isNew,
       isTrending,
       hasColors,
+      pieces,
     };
   });
 

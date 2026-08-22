@@ -139,3 +139,14 @@ body {
   0%   { opacity: 0; transform: translateY(-8px); }
   100% { opacity: 1; transform: translateY(0); }
 }
+
+/* إزالة أسهم الزيادة والنقصان الافتراضية من حقول الأرقام */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

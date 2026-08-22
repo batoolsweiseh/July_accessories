@@ -19,6 +19,7 @@ function spinWheel(prizesList: Segment[]) {
 
 const STORAGE_KEY = "july-wheel-segments";
 const COOLDOWN_KEY = "july-wheel-last-spin";
+const PRIZE_KEY = "july-wheel-last-prize";
 const COOLDOWN_TIME = 48 * 60 * 60 * 1000; // 48 hours
 
 function loadSegments(): Segment[] {
@@ -128,7 +129,7 @@ export default function LuckyWheel() {
   const [rotation, setRotation] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [lastSpinTime, setLastSpinTime] = useState<number | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<string>("");
+  const [lastPrize, setLastPrize] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -151,35 +152,48 @@ export default function LuckyWheel() {
       .catch((err) => console.error("Error loading wheel segments from server:", err));
 
     const lastSpin = localStorage.getItem(COOLDOWN_KEY);
+    const savedPrize = localStorage.getItem(PRIZE_KEY);
+
     if (lastSpin) {
       const lastSpinMs = parseInt(lastSpin, 10);
       if (!isNaN(lastSpinMs)) {
-        setLastSpinTime(lastSpinMs);
+        if (Date.now() - lastSpinMs < COOLDOWN_TIME) {
+          setLastSpinTime(lastSpinMs);
+          if (savedPrize) {
+            setLastPrize(savedPrize);
+            setResult(savedPrize);
+          }
+        } else {
+          // انتهت فترة الانتظار
+          localStorage.removeItem(COOLDOWN_KEY);
+          localStorage.removeItem(PRIZE_KEY);
+        }
       }
     }
   }, []);
 
-  /* حساب وتحديث العداد الزمني المتبقي */
+  /* فحص دوري لانتهاء الكول داون */
   useEffect(() => {
     if (lastSpinTime === null) return;
 
-    const updateCountdown = () => {
+    const checkCooldown = () => {
       const elapsed = Date.now() - lastSpinTime;
       const remaining = COOLDOWN_TIME - elapsed;
 
       if (remaining <= 0) {
         setLastSpinTime(null);
-        localStorage.removeItem(COOLDOWN_KEY);
-        setTimeRemaining("");
-      } else {
-        const hours = Math.floor(remaining / (1000 * 60 * 60));
-        const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-        setTimeRemaining(`${hours} ساعة و ${minutes} دقيقة`);
+        setLastPrize(null);
+        setResult(null);
+        setShowResult(false);
+        try {
+          localStorage.removeItem(COOLDOWN_KEY);
+          localStorage.removeItem(PRIZE_KEY);
+        } catch {}
       }
     };
 
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 60000); // تحديث كل دقيقة
+    checkCooldown();
+    const interval = setInterval(checkCooldown, 30000);
     return () => clearInterval(interval);
   }, [lastSpinTime]);
 
@@ -244,8 +258,13 @@ export default function LuckyWheel() {
       if (progress < 1) {
         animFrameRef.current = requestAnimationFrame(animate);
       } else {
-        // تعيين النتيجة المحددة مسبقاً بشكل مؤكد
-        setResult(winningPrize.label);
+        // تعيين النتيجة وحفظ الجائزة لتبقى ظاهرة حتى انتهاء فترة الانتظار
+        const prizeName = winningPrize.label;
+        setResult(prizeName);
+        setLastPrize(prizeName);
+        try {
+          localStorage.setItem(PRIZE_KEY, prizeName);
+        } catch {}
         setShowResult(true);
         setSpinning(false);
       }
@@ -275,9 +294,6 @@ export default function LuckyWheel() {
       <div className="relative mx-auto max-w-4xl px-5 sm:px-8">
         {/* العنوان */}
         <div className="mb-10 text-center">
-          <p className="font-mono text-[9px] tracking-widest text-black/40 uppercase mb-2">
-            — LUCKY WHEEL —
-          </p>
           <h2
             style={{ fontFamily: "'Lalezar', serif" }}
             className="text-3xl sm:text-5xl text-black"
@@ -285,7 +301,7 @@ export default function LuckyWheel() {
             🎡 دولاب الحظ
           </h2>
           <div className="mx-auto mt-3 h-px w-20 bg-gradient-to-r from-transparent via-[#FF6B6B]/60 to-transparent" />
-          <p className="mt-3 text-sm text-black/50">دوّر الدولاب واعرف حظك!</p>
+          <p className="mt-3 text-sm text-black/50">دوّر الدولاب واربح!</p>
         </div>
 
         <div className="flex flex-col items-center gap-8">
@@ -324,12 +340,16 @@ export default function LuckyWheel() {
               )}
             </div>
 
-            {/* زر الدوران */}
+            {/* زر الدوران / اسم الجائزة بعد الدوران */}
             <button
               type="button"
               onClick={spin}
               disabled={spinning || segments.length < 2 || isCooldownActive}
-              className="rounded-2xl bg-black px-12 py-4 text-white text-base font-bold tracking-wide shadow-xl transition-all duration-200 hover:bg-neutral-800 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`rounded-2xl px-10 py-4 text-base font-bold tracking-wide shadow-xl transition-all duration-200 ${
+                isCooldownActive
+                  ? "bg-black text-white cursor-default border border-white/10 shadow-lg"
+                  : "bg-black text-white hover:bg-neutral-800 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              }`}
             >
               {spinning ? (
                 <span className="flex items-center gap-2">
@@ -339,13 +359,16 @@ export default function LuckyWheel() {
                   جاري الدوران...
                 </span>
               ) : isCooldownActive ? (
-                `متاح بعد ${timeRemaining}`
+                <span className="flex items-center justify-center gap-2">
+                  <span>🎁</span>
+                  <span>{lastPrize || result || "تم السحب"}</span>
+                </span>
               ) : (
                 "🎲 دوّر!"
               )}
             </button>
 
-            {/* نتيجة السحب */}
+            {/* نتيجة السحب الفورية عند انتهاء الدوران */}
             {showResult && result && (
               <div
                 className="rounded-2xl bg-black px-8 py-4 text-center shadow-2xl"

@@ -81,10 +81,31 @@ export async function createProduct(formData: FormData) {
     const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const validSubcategoryId = subcategoryId && isValidUUID(subcategoryId) ? subcategoryId : null;
 
+    const piecesJson = formData.get("piecesJson") as string | null;
+    let validPiecesStr = "";
+    if (piecesJson) {
+      try {
+        const parsed = JSON.parse(piecesJson);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleanPieces = parsed
+            .filter((p: any) => p && typeof p.name === "string" && p.name.trim() && !isNaN(Number(p.price)))
+            .map((p: any) => ({
+              name: p.name.trim(),
+              price: Number(p.price),
+              hasColors: !!p.hasColors,
+            }));
+          if (cleanPieces.length > 0) {
+            validPiecesStr = ` [pieces:${JSON.stringify(cleanPieces)}]`;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
     let finalDescription = description || "";
     if (isNew) finalDescription += " [tag:new]";
     if (isTrending) finalDescription += " [tag:trending]";
     if (hasColors) finalDescription += " [tag:colors]";
+    if (validPiecesStr) finalDescription += validPiecesStr;
 
     const { error: insertError } = await supabaseAdmin.from("products").insert({
       name,
@@ -224,10 +245,31 @@ export async function updateProduct(id: string, formData: FormData) {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const validSubcategoryId = subcategoryId && isValidUUID(subcategoryId) ? subcategoryId : null;
 
+    const piecesJson = formData.get("piecesJson") as string | null;
+    let validPiecesStr = "";
+    if (piecesJson) {
+      try {
+        const parsed = JSON.parse(piecesJson);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleanPieces = parsed
+            .filter((p: any) => p && typeof p.name === "string" && p.name.trim() && !isNaN(Number(p.price)))
+            .map((p: any) => ({
+              name: p.name.trim(),
+              price: Number(p.price),
+              hasColors: !!p.hasColors,
+            }));
+          if (cleanPieces.length > 0) {
+            validPiecesStr = ` [pieces:${JSON.stringify(cleanPieces)}]`;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
     let finalDescription = description || "";
     if (isNew) finalDescription += " [tag:new]";
     if (isTrending) finalDescription += " [tag:trending]";
     if (hasColors) finalDescription += " [tag:colors]";
+    if (validPiecesStr) finalDescription += validPiecesStr;
 
     const { error: updateError } = await supabaseAdmin
       .from("products")

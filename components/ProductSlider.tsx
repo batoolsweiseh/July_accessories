@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useCart } from "@/lib/useCart";
 import ImageLightbox from "@/components/ImageLightbox";
 import ProductQuickViewModal from "@/components/ProductQuickViewModal";
+import { parseProductPieces, ProductPiece } from "@/lib/productVariants";
 
 /* ── أنواع ── */
 type Product = {
@@ -19,6 +20,7 @@ type Product = {
   isNew?: boolean;
   isTrending?: boolean;
   hasColors?: boolean;
+  pieces?: ProductPiece[];
 };
 
 /* ── قراءة/حفظ المفضلة من localStorage ── */
@@ -201,6 +203,7 @@ function ProductCard({ product }: { product: Product }) {
         isNew: product.isNew || product.is_new,
         isTrending: product.isTrending,
         hasColors: product.hasColors,
+        pieces: product.pieces,
       }}
       isFavorite={isFav}
       onToggleFavorite={() => toggleFav()}
@@ -321,6 +324,7 @@ export default function ProductSlider() {
             const isNew = !!p.is_new || desc.includes("[tag:new]");
             const isTrending = !!p.is_trending || desc.includes("[tag:trending]");
             const hasColors = desc.includes("[tag:colors]");
+            const pieces = parseProductPieces(desc);
             return {
               id: p.id,
               name: p.name,
@@ -332,6 +336,7 @@ export default function ProductSlider() {
               isNew,
               isTrending,
               hasColors,
+              pieces,
             };
           });
 

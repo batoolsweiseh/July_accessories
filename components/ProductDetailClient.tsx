@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/lib/useCart";
 import ImageLightbox from "@/components/ImageLightbox";
+import { ProductPiece } from "@/lib/productVariants";
 
 type Product = {
   id: number | string;
@@ -19,29 +20,53 @@ type Product = {
   image?: string;
   whatsapp: string;
   hasColors?: boolean;
+  pieces?: ProductPiece[];
 };
 
 export default function ProductDetailClient({ product }: { product: Product }) {
   const [adding, setAdding] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [selectedPiece, setSelectedPiece] = useState<ProductPiece | null>(
+    product.pieces && product.pieces.length > 0 ? product.pieces[0] : null
+  );
   const [selectedColor, setSelectedColor] = useState<"ذهبي" | "فضي">("ذهبي");
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
+
+  const handleSelectPiece = (piece: ProductPiece) => {
+    setSelectedPiece(piece);
+  };
+
+  const defaultNumericPrice = parseFloat(product.price.replace(/[^\d.]/g, "")) || 0;
+  const currentPrice = selectedPiece ? selectedPiece.price : defaultNumericPrice;
+
+  // خيارات الألوان للقطعة المحددة أو للمنتج
+  const showColors = selectedPiece
+    ? !!selectedPiece.hasColors
+    : !!product.hasColors;
 
   const handleAddToCart = async () => {
     if (product.inStock === false) return;
     setAdding(true);
     try {
-      const numericPrice = parseFloat(product.price.replace(/[^\d.]/g, "")) || 0;
-      const colorToSave = product.hasColors ? selectedColor : undefined;
+      const finalPrice = currentPrice;
+      const finalName =
+        selectedPiece && selectedPiece.name !== product.name
+          ? `${product.name} (${selectedPiece.name})`
+          : product.name;
+
+      const colorToSave = showColors ? selectedColor : undefined;
+
+      const pieceSuffix = selectedPiece ? `-${selectedPiece.name}` : "";
+      const customCartId = `${product.id}${pieceSuffix}`;
 
       await addToCart(
-        product.id,
+        customCartId,
         quantity,
         {
-          id: String(product.id),
-          name: product.name,
-          price: numericPrice,
+          id: customCartId,
+          name: finalName,
+          price: finalPrice,
           image_url: product.image || null,
           category_slug: product.category,
           in_stock: true,
@@ -57,8 +82,6 @@ export default function ProductDetailClient({ product }: { product: Product }) {
       setAdding(false);
     }
   };
-
-  const numericPrice = parseFloat(product.price.replace(/[^\d.]/g, "")) || 0;
 
   return (
     <main className="min-h-screen bg-paper">
@@ -135,12 +158,57 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             </h1>
 
             {/* السعر */}
-            <p className="mb-6 font-mono text-3xl font-bold text-[#00875a]">
-              {product.price}
-            </p>
+            <div className="flex items-center gap-3 mb-6">
+              <p className="font-mono text-3xl font-bold text-[#00875a]">
+                {currentPrice} ₪
+              </p>
+              {selectedPiece && (
+                <span className="text-xs text-neutral-500 font-bold bg-neutral-100 px-2.5 py-1 rounded-lg border border-black/5">
+                  ({selectedPiece.name})
+                </span>
+              )}
+            </div>
 
-            {/* اختيار اللون مع صور مصغرة (يظهر فقط إن كان مفعلاً للمنتج) */}
-            {product.hasColors && (
+            {/* ── اختيار القطعة أو الطقم المنفرد ── */}
+            {product.pieces && product.pieces.length > 0 && (
+              <div className="mb-6 space-y-2.5 p-4 rounded-2xl bg-neutral-50 border border-black/5">
+                <div className="flex items-center justify-between text-sm font-bold text-neutral-900">
+                  <span>اختر الصنف / القطعة:</span>
+                  <span className="text-[#00875a] font-extrabold text-sm">
+                    {selectedPiece?.name}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {product.pieces.map((piece, idx) => {
+                    const isSelected = selectedPiece?.name === piece.name;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSelectPiece(piece)}
+                        className={`flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all duration-200 active:scale-95 ${
+                          isSelected
+                            ? "border-[#00875a] bg-[#00875a]/10 text-[#00875a] ring-2 ring-[#00875a]/25 shadow-sm"
+                            : "border-black/15 bg-white text-neutral-700 hover:border-black/30"
+                        }`}
+                      >
+                        <span>{piece.name}</span>
+                        <span
+                          className={`font-mono px-2 py-0.5 rounded text-[11px] font-black ${
+                            isSelected ? "bg-[#00875a] text-white" : "bg-neutral-100 text-neutral-800"
+                          }`}
+                        >
+                          {piece.price} ₪
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── اختيار اللون مع صور مصغرة ── */}
+            {showColors && (
               <div className="mb-6 space-y-2.5">
                 <div className="flex items-center justify-between text-sm font-bold text-neutral-900">
                   <span>اختر اللون:</span>
@@ -150,7 +218,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {/* بطاقة ذهبي مع صورة */}
+                  {/* بطاقة ذهبي */}
                   <button
                     type="button"
                     onClick={() => setSelectedColor("ذهبي")}
@@ -182,7 +250,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                     )}
                   </button>
 
-                  {/* بطاقة فضي مع صورة */}
+                  {/* بطاقة فضي */}
                   <button
                     type="button"
                     onClick={() => setSelectedColor("فضي")}
@@ -279,7 +347,11 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                       <circle cx="20" cy="21" r="1" />
                       <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
                     </svg>
-                    <span>{adding ? "جاري الإضافة..." : `شراء هذا المنتج (${(numericPrice * quantity).toFixed(0)} ₪)`}</span>
+                    <span>
+                      {adding
+                        ? "جاري الإضافة..."
+                        : `شراء هذا الصنف (${(currentPrice * quantity).toFixed(0)} ₪)`}
+                    </span>
                   </button>
                 </div>
               )}
