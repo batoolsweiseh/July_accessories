@@ -129,7 +129,7 @@ export default function CategoryClient({
       ? products
       : products.filter((p) => p.subcategory === selectedSubcategory);
 
-  const PRODUCTS_PER_PAGE = 12;
+  const PRODUCTS_PER_PAGE = 10;
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
   const paginatedProducts = filteredProducts.slice(
     (page - 1) * PRODUCTS_PER_PAGE,
@@ -386,7 +386,7 @@ export default function CategoryClient({
                   onClick={() => setPage(pageNumber)}
                   className={`inline-flex items-center justify-center rounded-full border px-3 py-2 text-[11px] font-semibold transition ${
                     pageNumber === page
-                      ? 'border-[#E0457D] bg-[#E0457D] text-white'
+                      ? 'border-neutral-900 bg-neutral-900 text-white'
                       : 'border-charcoal/20 bg-white text-charcoal hover:bg-charcoal/5'
                   }`}
                 >

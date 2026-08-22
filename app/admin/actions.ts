@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { cleanDescriptionTags } from "@/lib/productVariants";
 
 export async function fetchAdminData() {
   try {
@@ -101,7 +102,7 @@ export async function createProduct(formData: FormData) {
       } catch { /* ignore */ }
     }
 
-    let finalDescription = description || "";
+    let finalDescription = cleanDescriptionTags(description);
     if (isNew) finalDescription += " [tag:new]";
     if (isTrending) finalDescription += " [tag:trending]";
     if (hasColors) finalDescription += " [tag:colors]";
@@ -265,7 +266,7 @@ export async function updateProduct(id: string, formData: FormData) {
       } catch { /* ignore */ }
     }
 
-    let finalDescription = description || "";
+    let finalDescription = cleanDescriptionTags(description);
     if (isNew) finalDescription += " [tag:new]";
     if (isTrending) finalDescription += " [tag:trending]";
     if (hasColors) finalDescription += " [tag:colors]";
