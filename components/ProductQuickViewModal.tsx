@@ -138,20 +138,20 @@ export default function ProductQuickViewModal({
   return createPortal(
     <div
       dir="rtl"
-      className="fixed inset-0 z-[100000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100000] flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg rounded-t-[32px] sm:rounded-[32px] bg-white border border-black/10 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] animate-in slide-in-from-bottom duration-300"
+        className="relative w-full max-w-md sm:max-w-lg rounded-[28px] sm:rounded-[32px] bg-white border border-black/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[88vh] animate-in zoom-in-95 duration-200 my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* زر الإغلاق العلوي */}
-        <div className="flex-shrink-0 flex items-center justify-between px-5 pt-4 pb-2 border-b border-black/5">
+        <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-5 pt-3.5 pb-2.5 sm:pt-4 sm:pb-3 border-b border-black/5">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-[#E0457D] animate-pulse" />
             <h2
               style={{ fontFamily: "'Lalezar', serif" }}
-              className="text-lg sm:text-xl text-neutral-900 leading-tight"
+              className="text-base sm:text-xl text-neutral-900 leading-tight"
             >
               مواصفات وطلب المنتج
             </h2>
@@ -170,23 +170,23 @@ export default function ProductQuickViewModal({
         </div>
 
         {/* محتوى المودال القابل للتمرير */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 bg-[#fffcfd]">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3 sm:py-4 space-y-3.5 bg-[#fffcfd]">
           {/* صورة المنتج الرئيسية */}
-          <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-neutral-50 border border-black/10 shadow-sm flex items-center justify-center">
+          <div className="relative aspect-[4/3] sm:aspect-square max-h-[220px] sm:max-h-[280px] w-full rounded-2xl overflow-hidden bg-neutral-900 border border-black/10 shadow-sm flex items-center justify-center">
             {/* بادج (الأكثر طلباً / جديد / مميز) */}
-            <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-10">
+            <div className="absolute top-2.5 right-2.5 flex flex-col gap-1.5 z-10">
               {product.isTrending && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 text-white px-3 py-1 text-[10px] font-bold shadow-md">
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 text-white px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold shadow-md">
                   🔥 الأكثر طلباً
                 </span>
               )}
               {product.isNew && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-3 py-1 text-[10px] font-bold shadow-md">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold shadow-md">
                   ✦ جديد
                 </span>
               )}
               {product.isFeatured && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 text-white px-3 py-1 text-[10px] font-bold shadow-md">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 text-white px-2.5 py-0.5 text-[9px] sm:text-[10px] font-bold shadow-md">
                   ★ مميز
                 </span>
               )}
@@ -194,7 +194,7 @@ export default function ProductQuickViewModal({
 
             {/* شارة اللون المختار في زاوية الصورة (تظهر فقط إذا كان هناك ألوان) */}
             {showColors && (
-              <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-md z-10 flex items-center gap-1.5 border border-white/10">
+              <div className="absolute bottom-2.5 right-2.5 bg-black/80 backdrop-blur-md text-white text-[10px] sm:text-[11px] font-bold px-2.5 py-1 rounded-full shadow-md z-10 flex items-center gap-1.5 border border-white/10">
                 {selectedColor === "ذهبي" ? (
                   <>
                     <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-amber-600 via-amber-400 to-amber-200 border border-amber-300 shadow-sm flex-shrink-0" />
@@ -214,7 +214,7 @@ export default function ProductQuickViewModal({
             <img
               src={product.image || "/product-placeholder.png"}
               alt={product.name}
-              className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+              className="w-full h-full object-contain transition-transform duration-500 hover:scale-105"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "/product-placeholder.png";
               }}
@@ -222,9 +222,9 @@ export default function ProductQuickViewModal({
           </div>
 
           {/* شريط السعر + المفضلة + اسم المنتج */}
-          <div className="flex items-start justify-between gap-3 pt-1 border-b border-black/5 pb-3">
-            <div className="space-y-1">
-              <h3 className="text-base sm:text-lg font-bold text-neutral-900 leading-snug">
+          <div className="flex items-start justify-between gap-3 pt-0.5 border-b border-black/5 pb-2.5">
+            <div className="space-y-0.5">
+              <h3 className="text-sm sm:text-base font-bold text-neutral-900 leading-snug">
                 {product.name}
               </h3>
               <div className="flex items-center gap-2">
@@ -385,7 +385,7 @@ export default function ProductQuickViewModal({
         </div>
 
         {/* الفوتر: العداد + زر الشراء الأخضر المباشر */}
-        <div className="flex-shrink-0 border-t border-black/10 bg-white px-5 py-3.5 shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
+        <div className="flex-shrink-0 border-t border-black/10 bg-white px-4 sm:px-5 py-3 sm:py-3.5 shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
           <div className="flex items-center gap-3">
             {/* عداد الكمية (- 1 +) */}
             <div className="flex items-center border-2 border-black/15 rounded-2xl bg-white px-2 py-1 h-12">
