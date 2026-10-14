@@ -407,8 +407,10 @@ import {
 
 export async function fetchAdminLoyaltyData() {
   try {
-    const rewards = getLoyaltyRewards(false);
-    const codes = getPurchaseCodes();
+    const [rewards, codes] = await Promise.all([
+      getLoyaltyRewards(false),
+      getPurchaseCodes(),
+    ]);
     return { success: true, rewards, codes };
   } catch (error: any) {
     console.error("fetchAdminLoyaltyData error:", error);
@@ -426,7 +428,7 @@ export async function saveLoyaltyRewardAction(data: {
   icon?: string;
 }) {
   try {
-    const reward = saveLoyaltyReward(data);
+    const reward = await saveLoyaltyReward(data);
     revalidatePath("/admin");
     revalidatePath("/account");
     return { success: true, reward };
@@ -438,7 +440,7 @@ export async function saveLoyaltyRewardAction(data: {
 
 export async function deleteLoyaltyRewardAction(id: string) {
   try {
-    const ok = deleteLoyaltyReward(id);
+    const ok = await deleteLoyaltyReward(id);
     revalidatePath("/admin");
     revalidatePath("/account");
     return { success: ok };
@@ -450,7 +452,7 @@ export async function deleteLoyaltyRewardAction(id: string) {
 
 export async function generateStorePurchaseCodeAction(points: number, note?: string) {
   try {
-    const code = generateStorePurchaseCode(points, note);
+    const code = await generateStorePurchaseCode(points, note);
     revalidatePath("/admin");
     return { success: true, code };
   } catch (error: any) {

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getLoyaltyRewards } from "@/lib/loyalty";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const showAll = searchParams.get("all") === "true";
-    const rewards = getLoyaltyRewards(!showAll);
+    const rewards = await getLoyaltyRewards(!showAll);
 
     return NextResponse.json({
       success: true,
