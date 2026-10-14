@@ -393,3 +393,127 @@ export async function updateOrderStatus(orderId: string, status: string) {
   }
 }
 
+/* ─── Loyalty Rewards & Store Codes Actions ─── */
+import {
+  getLoyaltyRewards,
+  saveLoyaltyReward,
+  deleteLoyaltyReward,
+  getPurchaseCodes,
+  generateStorePurchaseCode,
+  deductCustomerPointsByPhone,
+  lookupCustomerPointsByPhone,
+  resetCustomerPointsByPhone,
+} from "@/lib/loyalty";
+
+export async function fetchAdminLoyaltyData() {
+  try {
+    const rewards = getLoyaltyRewards(false);
+    const codes = getPurchaseCodes();
+    return { success: true, rewards, codes };
+  } catch (error: any) {
+    console.error("fetchAdminLoyaltyData error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function saveLoyaltyRewardAction(data: {
+  id?: string;
+  title: string;
+  points_required: number;
+  description: string;
+  month_tag?: string;
+  is_active?: boolean;
+  icon?: string;
+}) {
+  try {
+    const reward = saveLoyaltyReward(data);
+    revalidatePath("/admin");
+    revalidatePath("/account");
+    return { success: true, reward };
+  } catch (error: any) {
+    console.error("saveLoyaltyRewardAction error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deleteLoyaltyRewardAction(id: string) {
+  try {
+    const ok = deleteLoyaltyReward(id);
+    revalidatePath("/admin");
+    revalidatePath("/account");
+    return { success: ok };
+  } catch (error: any) {
+    console.error("deleteLoyaltyRewardAction error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function generateStorePurchaseCodeAction(points: number, note?: string) {
+  try {
+    const code = generateStorePurchaseCode(points, note);
+    revalidatePath("/admin");
+    return { success: true, code };
+  } catch (error: any) {
+    console.error("generateStorePurchaseCodeAction error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deductCustomerPointsAction(
+  phone: string,
+  points: number,
+  reason?: string
+): Promise<{
+  success: boolean;
+  newPoints?: number;
+  customerName?: string;
+  claimCode?: string;
+  error?: string;
+}> {
+  try {
+    const result = await deductCustomerPointsByPhone(phone, points, reason);
+    revalidatePath("/admin");
+    revalidatePath("/account");
+    return { ...result };
+  } catch (error: any) {
+    console.error("deductCustomerPointsAction error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function lookupCustomerPointsAction(phone: string): Promise<{
+  success: boolean;
+  customerName: string;
+  points: number;
+  error?: string;
+}> {
+  try {
+    return await lookupCustomerPointsByPhone(phone);
+  } catch (error: any) {
+    return { success: false, customerName: "", points: 0, error: error.message };
+  }
+}
+
+export async function resetCustomerPointsAction(
+  phone: string,
+  reason?: string
+): Promise<{
+  success: boolean;
+  oldPoints?: number;
+  newPoints?: number;
+  customerName?: string;
+  claimCode?: string;
+  error?: string;
+}> {
+  try {
+    const result = await resetCustomerPointsByPhone(phone, reason);
+    revalidatePath("/admin");
+    revalidatePath("/account");
+    return { ...result };
+  } catch (error: any) {
+    console.error("resetCustomerPointsAction error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+

@@ -12,7 +12,10 @@ import {
   updateProduct,
   fetchOrders,
   updateOrderStatus,
+  fetchAdminLoyaltyData,
 } from "./actions";
+import LoyaltyAdminSection from "@/components/LoyaltyAdminSection";
+import { LoyaltyReward, PurchaseCode } from "@/lib/loyalty";
 
 /* ─── Types ─── */
 type Category = {
@@ -548,7 +551,9 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<"products" | "orders">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "orders" | "loyalty">("products");
+  const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
+  const [codes, setCodes] = useState<PurchaseCode[]>([]);
 
   /* UI */
   const [submitting, setSubmitting] = useState(false);
@@ -562,9 +567,10 @@ export default function AdminPage() {
   /* ── Load Data ── */
   const loadData = async () => {
     setLoading(true);
-    const [result, ordersResult] = await Promise.all([
+    const [result, ordersResult, loyaltyResult] = await Promise.all([
       fetchAdminData(),
-      fetchOrders()
+      fetchOrders(),
+      fetchAdminLoyaltyData(),
     ]);
     
     if (result.success) {
@@ -587,6 +593,11 @@ export default function AdminPage() {
       setOrders(ordersResult.orders || []);
     } else {
       console.warn("Error loading orders:", ordersResult.error);
+    }
+
+    if (loyaltyResult && loyaltyResult.success) {
+      setRewards(loyaltyResult.rewards || []);
+      setCodes(loyaltyResult.codes || []);
     }
     setLoading(false);
   };
@@ -907,6 +918,17 @@ export default function AdminPage() {
                 }`}
               >
                 🛍️ إدارة الطلبات ({orders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("loyalty")}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
+                  activeTab === "loyalty"
+                    ? "border-[#E0457D] text-[#E0457D]"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                🎁 جوائز وأكواد النقاط ({rewards.length})
               </button>
             </div>
 
@@ -1482,8 +1504,15 @@ export default function AdminPage() {
               </section>
             </div>
           </>
-        ) : (
+        ) : activeTab === "orders" ? (
           <OrdersAdminSection orders={orders} onUpdateStatus={handleUpdateStatus} />
+        ) : (
+          <LoyaltyAdminSection
+            rewards={rewards}
+            codes={codes}
+            onRefresh={loadData}
+            onToast={(msg, type) => showToast(msg, type)}
+          />
         )}
       </>
     )}

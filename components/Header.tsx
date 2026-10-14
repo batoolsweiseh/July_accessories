@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Logo from "./Logo";
 import { CartIcon } from "./CartDrawer";
+import { useRouter } from "next/navigation";
 
 /* ─── بيانات الميجا منيو ─────────────────────────────────── */
 type NavCategory = {
@@ -54,6 +55,8 @@ const staticLinks = [
 
 /* ─── مكوّن ─────────────────────────────────────────────── */
 export default function Header() {
+  const router = useRouter();
+
   /* حالة القائمة الجانبية للموبايل */
   const [mobileOpen, setMobileOpen] = useState(false);
   /* الفئة المفتوحة في أكورديون الموبايل */
@@ -69,6 +72,53 @@ export default function Header() {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<(number | string)[]>([]);
   const [favoriteProducts, setFavoriteProducts] = useState<any[]>([]);
+
+  /* ── حالة المستخدم ── */
+  const [authUser, setAuthUser] = useState<{ name: string; phone: string } | null>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const checkAuth = async () => {
+    try {
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      const data = await res.json();
+      if (data.authenticated && data.user) {
+        setAuthUser({ name: data.user.name || data.user.phone, phone: data.user.phone });
+      } else {
+        setAuthUser(null);
+      }
+    } catch {
+      setAuthUser(null);
+    }
+  };
+
+  useEffect(() => {
+    checkAuth();
+    const handler = () => checkAuth();
+    window.addEventListener("july-auth-changed", handler);
+    return () => window.removeEventListener("july-auth-changed", handler);
+  }, []);
+
+  /* إغلاق قائمة المستخدم عند الضغط خارجها */
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch { /* ignore */ }
+    setAuthUser(null);
+    setUserMenuOpen(false);
+    window.dispatchEvent(new Event("july-auth-changed"));
+    router.push("/");
+  };
 
   /* ── تحميل المفضلة ── */
   const loadFavorites = () => {
@@ -243,6 +293,52 @@ export default function Header() {
               )}
             </button>
 
+            {/* زر المستخدم / تسجيل الدخول */}
+            <div className="relative" ref={userMenuRef}>
+              {authUser ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label="حسابي"
+                    onClick={() => setUserMenuOpen((v) => !v)}
+                    className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E0457D]/60 bg-[#E0457D]/10 text-[#E0457D] transition-colors hover:bg-[#E0457D]/20"
+                  >
+                    <i className="fa-solid fa-user text-sm" aria-hidden="true" />
+                  </button>
+                  {userMenuOpen && (
+                    <div className="absolute left-0 top-full mt-2 w-52 rounded-2xl border border-steel/20 bg-white p-3 shadow-xl z-50" dir="rtl">
+                      <p className="truncate px-2 py-1 text-xs font-semibold text-charcoal">{authUser.name}</p>
+                      <p className="truncate px-2 pb-2 text-xs text-charcoal/50">{authUser.phone}</p>
+                      <hr className="border-steel/15 mb-2" />
+                      <Link
+                        href="/account"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-right text-sm font-medium text-charcoal hover:bg-paper-2 transition-colors mb-1"
+                      >
+                        <i className="fa-solid fa-gem text-xs text-[#E0457D]" />
+                        <span>حسابي ونقاطي</span>
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 w-full rounded-xl px-3 py-2 text-right text-sm text-charcoal hover:bg-paper-2 transition-colors"
+                      >
+                        <i className="fa-solid fa-arrow-right-from-bracket ml-2 text-xs" />
+                        <span>تسجيل الخروج</span>
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Link
+                  href="/auth/login?redirect=/account"
+                  aria-label="تسجيل الدخول"
+                  className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-steel/40 text-charcoal transition-colors hover:border-steel/20"
+                >
+                  <i className="fa-solid fa-user text-sm" aria-hidden="true" />
+                </Link>
+              )}
+            </div>
+
           </div>
 
           {/* ── الوسط: ناف ديسكتوب ── */}
@@ -278,13 +374,22 @@ export default function Header() {
               </button>
             ))}
 
-            {/* من نحن — آخر على اليسار */}
+            {/* من نحن */}
             <Link
               href="/about"
               className="group relative font-body text-[17px] text-charcoal transition-colors hover:text-charcoal"
             >
               من نحن
               <span className="pointer-events-none absolute -bottom-1.5 right-0 h-px w-0 bg-charcoal transition-all duration-300 group-hover:w-full" />
+            </Link>
+
+            {/* حسابي */}
+            <Link
+              href={authUser ? "/account" : "/auth/login?redirect=/account"}
+              className="group relative font-body text-[17px] text-charcoal transition-colors hover:text-[#E0457D]"
+            >
+              حسابي
+              <span className="pointer-events-none absolute -bottom-1.5 right-0 h-px w-0 bg-[#E0457D] transition-all duration-300 group-hover:w-full" />
             </Link>
           </nav>
 
@@ -422,6 +527,65 @@ export default function Header() {
           >
             المفضلة
           </button>
+
+          {/* رابط حسابي في قائمة الموبايل */}
+          <Link
+            href={authUser ? "/account" : "/auth/login?redirect=/account"}
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center justify-between rounded-lg px-3 py-3 font-body text-base text-charcoal hover:bg-paper-3"
+          >
+            <span className="flex items-center gap-2">
+              <i className="fa-solid fa-gem text-xs text-[#E0457D]" />
+              <span>حسابي</span>
+            </span>
+            <span className="rounded-full bg-[#E0457D]/10 px-2 py-0.5 text-xs font-semibold text-[#E0457D]">
+              نقاطي
+            </span>
+          </Link>
+
+          {/* تسجيل الدخول / الخروج في الموبايل */}
+          {authUser ? (
+            <div className="mt-2 rounded-2xl border border-steel/20 bg-white p-3">
+              <div className="flex items-center justify-between mb-2 pb-2 border-b border-steel/10">
+                <div>
+                  <p className="text-sm font-semibold text-charcoal">{authUser.name}</p>
+                  <p className="text-xs text-charcoal/50">{authUser.phone}</p>
+                </div>
+                <Link
+                  href="/account"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-full bg-[#E0457D] text-white text-xs px-3 py-1 font-semibold"
+                >
+                  صفحة حسابي
+                </Link>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setMobileOpen(false); handleLogout(); }}
+                className="w-full text-right text-sm text-red-600 hover:text-red-700 py-1"
+              >
+                <i className="fa-solid fa-arrow-right-from-bracket ml-2 text-xs" />
+                تسجيل الخروج
+              </button>
+            </div>
+          ) : (
+            <>
+              <Link
+                href="/auth/login?redirect=/account"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-lg px-3 py-3 font-body text-base text-charcoal hover:bg-paper-3"
+              >
+                تسجيل الدخول
+              </Link>
+              <Link
+                href="/auth/signup?redirect=/account"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-lg px-3 py-3 font-body text-base text-[#E0457D] hover:bg-paper-3"
+              >
+                إنشاء حساب جديد
+              </Link>
+            </>
+          )}
 
           <a
             href="#categories"
