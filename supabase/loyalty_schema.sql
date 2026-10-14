@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.loyalty_rewards (
   month_tag       TEXT NOT NULL DEFAULT 'جوائز هذا الشهر',
   is_active       BOOLEAN NOT NULL DEFAULT TRUE,
   icon            TEXT DEFAULT 'fa-gift',
+  image           TEXT DEFAULT NULL,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -43,3 +44,9 @@ CREATE TABLE IF NOT EXISTS public.loyalty_rewards (
 ALTER TABLE public.store_purchase_codes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.loyalty_transactions  DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.loyalty_rewards       DISABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- Migration: إضافة عمود image إذا كان الجدول موجوداً مسبقاً
+-- شغّلي هذا السطر فقط إذا الجدول كان موجوداً قبل هذا التحديث
+-- ============================================================
+-- ALTER TABLE public.loyalty_rewards ADD COLUMN IF NOT EXISTS image TEXT DEFAULT NULL;

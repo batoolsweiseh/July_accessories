@@ -30,6 +30,7 @@ export default function LoyaltyAdminSection({
   const [pointsRequired, setPointsRequired] = useState("");
   const [description, setDescription] = useState("");
   const [monthTag, setMonthTag] = useState("جوائز هذا الشهر");
+  const [imageUrl, setImageUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [savingReward, setSavingReward] = useState(false);
 
@@ -68,6 +69,7 @@ export default function LoyaltyAdminSection({
     setPointsRequired(String(rew.points_required));
     setDescription(rew.description);
     setMonthTag(rew.month_tag || "جوائز هذا الشهر");
+    setImageUrl(rew.image || "");
     setIsActive(rew.is_active);
     window.scrollTo({ top: 300, behavior: "smooth" });
   };
@@ -79,6 +81,7 @@ export default function LoyaltyAdminSection({
     setPointsRequired("");
     setDescription("");
     setMonthTag("جوائز هذا الشهر");
+    setImageUrl("");
     setIsActive(true);
   };
 
@@ -98,6 +101,7 @@ export default function LoyaltyAdminSection({
         points_required: Number(pointsRequired),
         description,
         month_tag: monthTag,
+        image: imageUrl.trim() || undefined,
         is_active: isActive,
       });
 
@@ -368,6 +372,7 @@ export default function LoyaltyAdminSection({
                 className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-[#E0457D] focus:ring-1 focus:ring-[#E0457D]"
               />
             </div>
+
 
             <div className="flex items-center gap-2 pt-1">
               <input

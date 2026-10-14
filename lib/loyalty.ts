@@ -34,6 +34,7 @@ export interface LoyaltyReward {
   month_tag?: string;
   is_active: boolean;
   icon?: string;
+  image?: string;
   created_at: string;
 }
 
@@ -215,6 +216,7 @@ export async function saveLoyaltyReward(data: {
   month_tag?: string;
   is_active?: boolean;
   icon?: string;
+  image?: string;
 }): Promise<LoyaltyReward> {
   const payload = {
     title: data.title.trim(),
@@ -223,6 +225,7 @@ export async function saveLoyaltyReward(data: {
     month_tag: (data.month_tag || "جوائز هذا الشهر").trim(),
     is_active: data.is_active !== undefined ? data.is_active : true,
     icon: data.icon || "fa-gift",
+    image: (data.image || "").trim() || null,
   };
 
   if (data.id) {

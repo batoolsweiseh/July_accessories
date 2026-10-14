@@ -426,6 +426,7 @@ export async function saveLoyaltyRewardAction(data: {
   month_tag?: string;
   is_active?: boolean;
   icon?: string;
+  image?: string;
 }) {
   try {
     const reward = await saveLoyaltyReward(data);
