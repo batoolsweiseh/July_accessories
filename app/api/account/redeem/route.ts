@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       pointsAdded: result.pointsAdded,
       totalPoints: result.totalPoints,
       history: result.history,
-      message: `تمت إضافة ${result.pointsAdded} نقطة بنجاح إلى رصيدك!`,
+      message: result.message || `تمت إضافة ${result.pointsAdded} نقطة بنجاح إلى رصيدك!`,
     });
   } catch (err: any) {
     console.error("Account redeem error:", err);

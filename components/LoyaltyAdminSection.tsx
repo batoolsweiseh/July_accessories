@@ -6,6 +6,9 @@ import {
   saveLoyaltyRewardAction,
   deleteLoyaltyRewardAction,
   generateStorePurchaseCodeAction,
+  createOrUpdatePurchaseCodeAction,
+  togglePurchaseCodeStatusAction,
+  deletePurchaseCodeAction,
   deductCustomerPointsAction,
   lookupCustomerPointsAction,
   resetCustomerPointsAction,
@@ -34,12 +37,23 @@ export default function LoyaltyAdminSection({
   const [isActive, setIsActive] = useState(true);
   const [savingReward, setSavingReward] = useState(false);
 
-  // حالة توليد كود مشتريات جديد
+  // حالة إنشاء وتعديل أكواد الخصم والنقاط
+  const [editingCode, setEditingCode] = useState<PurchaseCode | null>(null);
+  const [customCode, setCustomCode] = useState("");
   const [codePoints, setCodePoints] = useState("100");
   const [codeNote, setCodeNote] = useState("");
-  const [generatingCode, setGeneratingCode] = useState(false);
-  const [generatedCodeResult, setGeneratedCodeResult] = useState<string | null>(null);
+  const [codeIsActive, setCodeIsActive] = useState(true);
+  const [codeUsageType, setCodeUsageType] = useState<"once_per_user" | "once_globally">("once_per_user");
+  const [savingCode, setSavingCode] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // مودال عرض من استخدم الكود
+  const [viewUsersCode, setViewUsersCode] = useState<PurchaseCode | null>(null);
+
+  // مودال تأكيد حذف كود
+  const [deleteTargetCode, setDeleteTargetCode] = useState<PurchaseCode | null>(null);
+  const [deletingCode, setDeletingCode] = useState(false);
+  const [togglingCodeId, setTogglingCodeId] = useState<string | null>(null);
 
   // حالة خصم نقاط زبونة عند تسليم الهدية في المحل
   const [deductPhone, setDeductPhone] = useState("");
@@ -49,7 +63,6 @@ export default function LoyaltyAdminSection({
   const [deductResult, setDeductResult] = useState<{
     customerName: string;
     newPoints: number;
-    claimCode: string;
   } | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [customerLookupData, setCustomerLookupData] = useState<{
@@ -139,31 +152,114 @@ export default function LoyaltyAdminSection({
     }
   };
 
-  // توليد كود مشتريات جديد
-  const handleGenerateCode = async (e: React.FormEvent) => {
+  // اقتراح كود عشوائي اختياري
+  const suggestRandomCode = () => {
+    const pts = codePoints || "100";
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    setCustomCode(`JULY-${rand}-${pts}`);
+  };
+
+  // بدء تعديل كود
+  const startEditCode = (cd: PurchaseCode) => {
+    setEditingCode(cd);
+    setCustomCode(cd.code);
+    setCodePoints(String(cd.points));
+    setCodeNote(cd.note || "");
+    setCodeIsActive(cd.is_active !== undefined ? cd.is_active : true);
+    setCodeUsageType(cd.usage_type || "once_per_user");
+    window.scrollTo({ top: 800, behavior: "smooth" });
+  };
+
+  // إلغاء تعديل كود
+  const cancelEditCode = () => {
+    setEditingCode(null);
+    setCustomCode("");
+    setCodePoints("100");
+    setCodeNote("");
+    setCodeIsActive(true);
+    setCodeUsageType("once_per_user");
+  };
+
+  // حفظ الكود (إنشاء جديد أو تعديل)
+  const handleSaveCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const pts = Number(codePoints);
-    if (!pts || pts <= 0) {
-      onToast("يرجى إدخال عدد نقاط صحيح", "error");
+    const cleanCodeStr = customCode.trim().toUpperCase().replace(/\s+/g, "");
+    if (!cleanCodeStr) {
+      onToast("يرجى كتابة رمز الكود", "error");
       return;
     }
 
-    setGeneratingCode(true);
-    setGeneratedCodeResult(null);
+    const pts = Number(codePoints);
+    if (!pts || pts <= 0) {
+      onToast("يرجى إدخال عدد نقاط صحيح أكبر من صفر", "error");
+      return;
+    }
+
+    setSavingCode(true);
     try {
-      const res = await generateStorePurchaseCodeAction(pts, codeNote);
+      const res = await createOrUpdatePurchaseCodeAction({
+        id: editingCode?.id,
+        code: cleanCodeStr,
+        points: pts,
+        note: codeNote.trim(),
+        is_active: codeIsActive,
+        usage_type: codeUsageType,
+      });
+
       if (res.success && res.code) {
-        setGeneratedCodeResult(res.code.code);
-        onToast(`تم توليد الكود بنجاح: ${res.code.code}`, "success");
-        setCodeNote("");
+        onToast(
+          editingCode ? `تم تعديل الكود بنجاح: ${res.code.code}` : `تم إنشاء الكود بنجاح: ${res.code.code}`,
+          "success"
+        );
+        cancelEditCode();
         await onRefresh();
       } else {
-        onToast(res.error || "فشل توليد الكود", "error");
+        onToast(res.error || "فشل حفظ الكود", "error");
+      }
+    } catch (err: any) {
+      onToast(err.message || "حدث خطأ أثناء حفظ الكود", "error");
+    } finally {
+      setSavingCode(false);
+    }
+  };
+
+  // تفعيل / تعطيل الكود
+  const handleToggleCodeStatus = async (cd: PurchaseCode) => {
+    if (!cd.id) return;
+    setTogglingCodeId(cd.id);
+    const newStatus = !cd.is_active;
+    try {
+      const res = await togglePurchaseCodeStatusAction(cd.id, newStatus);
+      if (res.success) {
+        onToast(newStatus ? `تم تفعيل الكود ${cd.code}` : `تم إيقاف تفعيل الكود ${cd.code}`, "success");
+        await onRefresh();
+      } else {
+        onToast(res.error || "فشل تغيير حالة الكود", "error");
       }
     } catch (err: any) {
       onToast(err.message || "حدث خطأ", "error");
     } finally {
-      setGeneratingCode(false);
+      setTogglingCodeId(null);
+    }
+  };
+
+  // تأكيد حذف الكود
+  const confirmDeleteCode = async () => {
+    if (!deleteTargetCode?.id) return;
+    setDeletingCode(true);
+    try {
+      const res = await deletePurchaseCodeAction(deleteTargetCode.id);
+      if (res.success) {
+        onToast(`تم حذف الكود ${deleteTargetCode.code} بنجاح`, "success");
+        setDeleteTargetCode(null);
+        await onRefresh();
+      } else {
+        onToast(res.error || "فشل حذف الكود", "error");
+      }
+    } catch (err: any) {
+      onToast(err.message || "حدث خطأ أثناء الحذف", "error");
+    } finally {
+      setDeletingCode(false);
     }
   };
 
@@ -195,7 +291,6 @@ export default function LoyaltyAdminSection({
         setDeductResult({
           customerName: res.customerName || "الزبونة",
           newPoints: res.newPoints,
-          claimCode: res.claimCode || "",
         });
         onToast(`تم خصم ${deductPoints} نقطة بنجاح! الرصيد الجديد: ${res.newPoints} نقطة.`, "success");
         setDeductPhone("");
@@ -258,7 +353,6 @@ export default function LoyaltyAdminSection({
         setDeductResult({
           customerName: res.customerName || "الزبونة",
           newPoints: 0,
-          claimCode: res.claimCode || "",
         });
         setCustomerLookupData(null);
         onToast(`تم تصفير رصيد الزبونة ${res.customerName} بنجاح إلى 0 نقطة!`, "success");
@@ -476,25 +570,62 @@ export default function LoyaltyAdminSection({
 
       </div>
 
-      {/* ── 3. قسم توليد وإدارة أكواد مشتريات المحل ── */}
+      {/* ── 3. قسم إنشاء وإدارة أكواد الخصم والنقاط ── */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 mb-6 gap-2">
           <div>
             <h3 className="text-xl font-bold text-neutral-900">
-              توليد أكواد مشتريات المحل (Store Purchase Codes)
+              {editingCode ? "تعديل كود الخصم / النقاط" : "إنشاء وإدارة أكواد الخصم والنقاط"}
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              أنشئي كوداً جديداً بضغطة زر لطباعته في فاتورة الزبونة بالمحل أو إرساله لها لتضيف النقاط لحسابها.
+              اكتبي اسم الكود بنفسك وحددي عدد النقاط التي يمنحها، وتحكمي في تفعيله واستخدامه لكل مستخدم.
             </p>
           </div>
+          {editingCode && (
+            <button
+              type="button"
+              onClick={cancelEditCode}
+              className="text-xs text-slate-500 hover:text-slate-800 underline self-start sm:self-center"
+            >
+              إلغاء التعديل
+            </button>
+          )}
         </div>
 
-        {/* نموذج التوليد السريع */}
-        <form onSubmit={handleGenerateCode} className="mb-6 rounded-xl bg-slate-50 border border-slate-200 p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+        {/* نموذج إنشاء / تعديل الكود بنفسك */}
+        <form onSubmit={handleSaveCode} className="mb-6 rounded-2xl bg-slate-50 border border-slate-200 p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+            <div className="sm:col-span-4">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-neutral-800">
+                  رمز / اسم الكود *
+                </label>
+                {!editingCode && (
+                  <button
+                    type="button"
+                    onClick={suggestRandomCode}
+                    className="text-[11px] text-[#E0457D] hover:underline flex items-center gap-1"
+                  >
+                    <i className="fa-solid fa-wand-magic-sparkles text-[10px]" />
+                    اقتراح كود
+                  </button>
+                )}
+              </div>
+              <input
+                type="text"
+                dir="ltr"
+                value={customCode}
+                onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
+                placeholder="مثال: JULY50 أو VIP100 أو SUMMER2026"
+                required
+                disabled={!!editingCode}
+                className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-mono uppercase tracking-wider outline-none focus:border-[#E0457D] focus:ring-1 focus:ring-[#E0457D] bg-white disabled:bg-slate-100"
+              />
+            </div>
+
             <div className="sm:col-span-3">
               <label className="block text-xs font-bold text-neutral-800 mb-1">
-                النقاط التي يمنحها الكود
+                النقاط التي يمنحها الكود *
               </label>
               <input
                 type="number"
@@ -502,55 +633,72 @@ export default function LoyaltyAdminSection({
                 value={codePoints}
                 onChange={(e) => setCodePoints(e.target.value)}
                 placeholder="مثال: 100"
-                className="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-[#E0457D] focus:ring-1 focus:ring-[#E0457D]"
+                required
+                className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-mono outline-none focus:border-[#E0457D] focus:ring-1 focus:ring-[#E0457D] bg-white"
               />
             </div>
 
-            <div className="sm:col-span-6">
+            <div className="sm:col-span-5">
               <label className="block text-xs font-bold text-neutral-800 mb-1">
-                ملاحظة أو رقم الفاتورة (اختياري)
+                ملاحظة أو وصف الكود (اختياري)
               </label>
               <input
                 type="text"
                 value={codeNote}
                 onChange={(e) => setCodeNote(e.target.value)}
-                placeholder="مثال: فاتورة مشتريات رقم #1024 - فرع المحل"
-                className="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-[#E0457D]"
+                placeholder="مثال: عرض الصيف، كود عملاء إنستغرام، فاتورة محل..."
+                className="w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-[#E0457D] bg-white"
               />
             </div>
 
-            <div className="sm:col-span-3">
-              <button
-                type="submit"
-                disabled={generatingCode}
-                className="w-full rounded-xl bg-neutral-900 py-2.5 text-sm font-bold text-white hover:bg-neutral-800 transition disabled:opacity-50"
-              >
-                {generatingCode ? "جارٍ التوليد..." : "توليد كود جديد"}
-              </button>
+            <div className="sm:col-span-12 flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/70">
+              <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-neutral-800">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={codeIsActive}
+                    onChange={(e) => setCodeIsActive(e.target.checked)}
+                    className="h-4 w-4 rounded text-[#E0457D] focus:ring-[#E0457D]"
+                  />
+                  <span>الكود مفعّل وجاهز للاستخدام</span>
+                </label>
+
+                <div className="flex items-center gap-2 pr-3 border-r border-slate-300">
+                  <span className="text-slate-500">صلاحية الاستخدام:</span>
+                  <select
+                    value={codeUsageType}
+                    onChange={(e: any) => setCodeUsageType(e.target.value)}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs outline-none"
+                  >
+                    <option value="once_per_user">صالح للاستخدام مرة واحدة لكل مستخدم (موصى به)</option>
+                    <option value="once_globally">صالح للاستخدام لمرة واحدة فقط بالمجمل</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {editingCode && (
+                  <button
+                    type="button"
+                    onClick={cancelEditCode}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                  >
+                    إلغاء
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={savingCode}
+                  className="rounded-xl bg-neutral-900 px-6 py-2.5 text-xs font-bold text-white hover:bg-neutral-800 transition disabled:opacity-50 shadow-sm"
+                >
+                  {savingCode ? "جارٍ الحفظ..." : editingCode ? "حفظ تعديل الكود" : "إنشاء الكود"}
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* الكود المولد حديثاً */}
-          {generatedCodeResult && (
-            <div className="mt-4 flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-emerald-900 animate-fadeIn">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold">تم توليد الكود الجديد:</span>
-                <span className="font-mono text-base font-black tracking-wider text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-200">
-                  {generatedCodeResult}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(generatedCodeResult)}
-                className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white hover:bg-emerald-700 transition"
-              >
-                {copiedCode === generatedCodeResult ? "تم النسخ" : "نسخ الكود"}
-              </button>
-            </div>
-          )}
         </form>
 
-        {/* جدول الأكواد الحالية */}
+        {/* جدول الأكواد الحالية وإحصائيات المستخدمين */}
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full text-right text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600">
@@ -558,48 +706,109 @@ export default function LoyaltyAdminSection({
                 <th className="p-3">الكود</th>
                 <th className="p-3">النقاط</th>
                 <th className="p-3">الملاحظة</th>
-                <th className="p-3">الحالة</th>
+                <th className="p-3 text-center">المستخدمون</th>
+                <th className="p-3 text-center">الحالة</th>
                 <th className="p-3">تاريخ الإنشاء</th>
-                <th className="p-3 text-center">إجراء</th>
+                <th className="p-3 text-center">الإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {codes.slice(0, 15).map((cd) => (
-                <tr key={cd.code} className="hover:bg-slate-50/50">
-                  <td className="p-3 font-mono font-bold text-neutral-900 text-sm">
-                    {cd.code}
-                  </td>
-                  <td className="p-3 font-bold text-[#E0457D]">
-                    +{cd.points} نقطة
-                  </td>
-                  <td className="p-3 text-slate-600">
-                    {cd.note || "كود مشتريات من المحل"}
-                  </td>
-                  <td className="p-3">
-                    {cd.is_used ? (
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                        مستخدم مسبقاً
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                        جاهز للاستخدام
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-3 font-mono text-slate-400">
-                    {new Date(cd.created_at).toLocaleDateString("ar-EG")}
-                  </td>
-                  <td className="p-3 text-center">
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(cd.code)}
-                      className="rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-200"
-                    >
-                      {copiedCode === cd.code ? "تم النسخ ✓" : "نسخ"}
-                    </button>
+              {codes.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-6 text-center text-slate-400">
+                    لا توجد أكواد مضافة بعد. يمكنكِ إنشاء أول كود من النموذج أعلاه.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                codes.map((cd) => (
+                  <tr key={cd.code} className="hover:bg-slate-50/50 transition">
+                    <td className="p-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-neutral-900 text-sm tracking-wide bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          {cd.code}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(cd.code)}
+                          className="text-slate-400 hover:text-slate-700 p-1"
+                          title="نسخ الكود"
+                        >
+                          {copiedCode === cd.code ? (
+                            <i className="fa-solid fa-check text-emerald-600 text-xs" />
+                          ) : (
+                            <i className="fa-regular fa-copy text-xs" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+
+                    <td className="p-3 font-bold text-[#E0457D] font-mono">
+                      +{cd.points} نقطة
+                    </td>
+
+                    <td className="p-3 text-slate-600 max-w-xs truncate">
+                      {cd.note || "كود مشتريات / خصم"}
+                    </td>
+
+                    {/* عدد المستخدمين وزر عرضهم */}
+                    <td className="p-3 text-center">
+                      {cd.usage_count && cd.usage_count > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setViewUsersCode(cd)}
+                          className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-100 transition shadow-2xs"
+                        >
+                          <i className="fa-solid fa-users text-[10px]" />
+                          استخدمه {cd.usage_count}
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 text-[11px]">0 مستخدم</span>
+                      )}
+                    </td>
+
+                    {/* حالة التفعيل وتغييرها بنقرة واحدة */}
+                    <td className="p-3 text-center">
+                      <button
+                        type="button"
+                        disabled={togglingCodeId === cd.id}
+                        onClick={() => handleToggleCodeStatus(cd)}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold transition border ${
+                          cd.is_active
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                            : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                        }`}
+                        title="انقري لتغيير حالة التفعيل"
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${cd.is_active ? "bg-emerald-600" : "bg-amber-500"}`} />
+                        {cd.is_active ? "مفعّل" : "معطل"}
+                      </button>
+                    </td>
+
+                    <td className="p-3 font-mono text-slate-400 text-[11px]">
+                      {new Date(cd.created_at).toLocaleDateString("ar-EG")}
+                    </td>
+
+                    <td className="p-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => startEditCode(cd)}
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition shadow-xs"
+                        >
+                          تعديل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTargetCode(cd)}
+                          className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition shadow-xs"
+                        >
+                          حذف
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -634,7 +843,7 @@ export default function LoyaltyAdminSection({
                 <p className="font-bold text-base text-emerald-900">
                   تم تسليم الهدية وتحديث رصيد الزبونة بنجاح!
                 </p>
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <div className="bg-white/80 rounded-xl p-2.5 border border-emerald-100">
                     <span className="text-slate-500 block">اسم الزبونة:</span>
                     <strong className="text-neutral-900 text-sm">{deductResult.customerName}</strong>
@@ -642,10 +851,6 @@ export default function LoyaltyAdminSection({
                   <div className="bg-white/80 rounded-xl p-2.5 border border-emerald-100">
                     <span className="text-slate-500 block">الرصيد الجديد الحالي:</span>
                     <strong className="text-emerald-700 text-sm font-mono">{deductResult.newPoints} نقطة</strong>
-                  </div>
-                  <div className="bg-white/80 rounded-xl p-2.5 border border-emerald-100">
-                    <span className="text-slate-500 block">كود إيصال التسليم:</span>
-                    <strong className="text-slate-800 text-xs font-mono">{deductResult.claimCode}</strong>
                   </div>
                 </div>
               </div>
@@ -927,6 +1132,130 @@ export default function LoyaltyAdminSection({
                   إلغاء
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── مودال عرض من استخدم الكود ── */}
+      {viewUsersCode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm"
+            onClick={() => setViewUsersCode(null)}
+          />
+
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl transition-all" dir="rtl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-neutral-900">
+                  المستخدمون الذين استخدموا الكود
+                </h3>
+                <p className="text-xs text-slate-500 font-mono mt-0.5">
+                  الكود: <strong className="text-neutral-900 bg-slate-100 px-1.5 py-0.5 rounded">{viewUsersCode.code}</strong> • يمنح:{" "}
+                  <strong className="text-[#E0457D]">+{viewUsersCode.points} نقطة</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewUsersCode(null)}
+                className="text-slate-400 hover:text-slate-600 text-sm"
+              >
+                <i className="fa-solid fa-xmark text-lg" />
+              </button>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+              {viewUsersCode.used_by_users && viewUsersCode.used_by_users.length > 0 ? (
+                viewUsersCode.used_by_users.map((u, idx) => (
+                  <div
+                    key={u.user_id + idx}
+                    className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs"
+                  >
+                    <div>
+                      <div className="font-bold text-neutral-900 text-sm">
+                        {u.user_name || "عميلة July"}
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-500">
+                        {u.user_phone ? `الهاتف: ${u.user_phone}` : `المعرف: ${u.user_id.slice(0, 8)}...`}
+                      </div>
+                    </div>
+
+                    <div className="text-left font-mono text-[11px] text-slate-400">
+                      {new Date(u.redeemed_at).toLocaleDateString("ar-EG", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  لم يقم أي مستخدم باستخدام هذا الكود بعد.
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 pt-3 mt-4 text-left">
+              <button
+                type="button"
+                onClick={() => setViewUsersCode(null)}
+                className="rounded-xl bg-slate-100 hover:bg-slate-200 px-4 py-2 text-xs font-bold text-slate-700 transition"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── مودال تأكيد حذف الكود ── */}
+      {deleteTargetCode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm"
+            onClick={() => !deletingCode && setDeleteTargetCode(null)}
+          />
+
+          <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl transition-all text-center" dir="rtl">
+            <h3 className="text-xl font-bold text-neutral-900 mb-2">
+              تأكيد حذف كود الخصم
+            </h3>
+
+            <p className="text-sm text-slate-500 leading-relaxed mb-6">
+              هل أنتِ متأكدة من حذف الكود{" "}
+              <span className="font-mono font-bold text-neutral-900 bg-slate-100 px-2 py-0.5 rounded">
+                «{deleteTargetCode.code}»
+              </span>{" "}
+              الذي يمنح{" "}
+              <strong className="text-[#E0457D]">({deleteTargetCode.points} نقطة)</strong>؟
+              <br />
+              <span className="text-xs text-slate-400 mt-2 block">
+                ملاحظة: حذف الكود يمنع استخدامه مستقبلاً، ولا يؤثر إطلاقاً على النقاط السابقة التي اكتسبها العملاء.
+              </span>
+            </p>
+
+            <div className="flex w-full gap-3">
+              <button
+                type="button"
+                disabled={deletingCode}
+                onClick={confirmDeleteCode}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 py-3 text-sm font-bold text-white shadow-md shadow-red-600/25 active:scale-[0.98] transition disabled:opacity-50"
+              >
+                {deletingCode ? "جارٍ الحذف..." : "حذف الكود"}
+              </button>
+
+              <button
+                type="button"
+                disabled={deletingCode}
+                onClick={() => setDeleteTargetCode(null)}
+                className="flex-1 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition active:scale-[0.98] disabled:opacity-50"
+              >
+                إلغاء
+              </button>
             </div>
           </div>
         </div>

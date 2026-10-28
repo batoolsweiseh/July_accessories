@@ -1,6 +1,8 @@
 import { NextResponse, NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
+import { getUserLoyalty } from "@/lib/loyalty";
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get("customer_session")?.value;
@@ -12,7 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ authenticated: false }, { status: 200 });
     }
     const meta = user.user_metadata || {};
-    const points = typeof meta.points === "number" ? Math.max(0, meta.points) : 0;
+    const { points } = await getUserLoyalty(user.id);
     return NextResponse.json({
       authenticated: true,
       user: {

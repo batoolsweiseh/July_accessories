@@ -242,7 +242,7 @@ function ArrowBtn({
   );
 }
 
-/* ── شريط سلايدر لقسم واحد ── */
+/* ── شريط سلايدر لقسم واحد — شريط إعلاني متحرك لليمين بشكل مستمر ── */
 function SectionSlider({
   title,
   titleAr,
@@ -253,18 +253,149 @@ function SectionSlider({
   products: Product[];
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const getScrollAmount = () => {
-    if (!trackRef.current) return 152;
-    const firstCard = trackRef.current.querySelector(".group");
-    return firstCard ? firstCard.clientWidth + 16 : 152;
+  const firstSetRef = useRef<HTMLDivElement>(null);
+  const animRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
+  const offsetRef = useRef(0);
+  const setWidthRef = useRef(0);
+  const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartXRef = useRef(0);
+  const isTouchingRef = useRef(false);
+
+  /* نضمن أن كل مجموعة تحتوي على عدد كافٍ من العناصر لتغطية الشاشات الكبيرة */
+  const minPerSet = 8;
+  const multiplier = Math.max(1, Math.ceil(minPerSet / Math.max(products.length, 1)));
+  const baseSet: Product[] = [];
+  for (let i = 0; i < multiplier; i++) {
+    baseSet.push(...products);
+  }
+
+  /* سرعة الحركة: بيكسل لكل frame (حركة سلسة ومريحة للمشاهدة كإعلان) */
+  const SPEED = 0.6;
+
+  /* قياس عرض المجموعة بدقة */
+  const measureSetWidth = () => {
+    if (firstSetRef.current && firstSetRef.current.offsetWidth > 0) {
+      setWidthRef.current = firstSetRef.current.offsetWidth + 4; // عرض المجموعة + الـ gap
+    }
   };
 
-  /* في RTL: left يعني للأمام (التالي)، right يعني للخلف (السابق) */
-  const goRight = () => {
-    trackRef.current?.scrollBy({ left: getScrollAmount(), behavior: "smooth" });
+  useEffect(() => {
+    measureSetWidth();
+
+    const handleResize = () => {
+      measureSetWidth();
+    };
+    window.addEventListener("resize", handleResize);
+
+    const step = () => {
+      if (setWidthRef.current <= 0) {
+        measureSetWidth();
+      }
+
+      if (!pausedRef.current && trackRef.current && setWidthRef.current > 0) {
+        /* الحركة باتجاه اليمين: زيادة الـ offset */
+        offsetRef.current += SPEED;
+
+        /* عندما يصل الـ offset لعرض مجموعة كاملة، يرجع لـ 0 بسلاسة تامة */
+        if (offsetRef.current >= setWidthRef.current) {
+          offsetRef.current -= setWidthRef.current;
+        }
+
+        trackRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
+      }
+      animRef.current = requestAnimationFrame(step);
+    };
+
+    animRef.current = requestAnimationFrame(step);
+
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [products.length]);
+
+  const pause = () => {
+    pausedRef.current = true;
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
   };
+
+  const resumeWithDelay = (delayMs = 1500) => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      pausedRef.current = false;
+    }, delayMs);
+  };
+
+  const resume = () => {
+    pausedRef.current = false;
+  };
+
+  /* عرض بطاقة تقريبي للحسابات عند الضغط على الأسهم */
+  const getCardStep = () => {
+    if (firstSetRef.current) {
+      const card = firstSetRef.current.querySelector<HTMLElement>(".group");
+      return card ? (card.offsetWidth + 4) * 3 : 360;
+    }
+    return 360;
+  };
+
+  /* سهم يمين: تقديم الحركة لليمين */
+  const goRight = () => {
+    pause();
+    offsetRef.current += getCardStep();
+    const w = setWidthRef.current;
+    if (w > 0) {
+      while (offsetRef.current >= w) offsetRef.current -= w;
+    }
+    if (trackRef.current) {
+      trackRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
+    }
+    resumeWithDelay(2200);
+  };
+
+  /* سهم يسار: تحريك لليسار (عكس اتجاه الحركة) */
   const goLeft = () => {
-    trackRef.current?.scrollBy({ left: -getScrollAmount(), behavior: "smooth" });
+    pause();
+    offsetRef.current -= getCardStep();
+    const w = setWidthRef.current;
+    if (w > 0) {
+      while (offsetRef.current < 0) offsetRef.current += w;
+    }
+    if (trackRef.current) {
+      trackRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
+    }
+    resumeWithDelay(2200);
+  };
+
+  /* لمس الهاتف / التمرير باللمس */
+  const onTouchStart = (e: React.TouchEvent) => {
+    pause();
+    isTouchingRef.current = true;
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!isTouchingRef.current) return;
+    const currentX = e.touches[0].clientX;
+    const delta = currentX - touchStartXRef.current;
+    touchStartXRef.current = currentX;
+
+    offsetRef.current += delta;
+    const w = setWidthRef.current;
+    if (w > 0) {
+      while (offsetRef.current >= w) offsetRef.current -= w;
+      while (offsetRef.current < 0) offsetRef.current += w;
+    }
+    if (trackRef.current) {
+      trackRef.current.style.transform = `translate3d(${offsetRef.current}px, 0, 0)`;
+    }
+  };
+
+  const onTouchEnd = () => {
+    isTouchingRef.current = false;
+    resumeWithDelay(1800);
   };
 
   return (
@@ -282,28 +413,57 @@ function SectionSlider({
         </h3>
       </div>
 
-      {/* Track + أسهم */}
+      {/* شريط المنتجات + أزرار الأسهم */}
       <div className="relative px-4 sm:px-12">
-        {/* سهم يمين — دائماً ظاهر */}
+        {/* سهم يمين */}
         <ArrowBtn direction="right" onClick={goRight} />
 
-        {/* الـ Track */}
-        <div
-          ref={trackRef}
-          className="flex gap-1 overflow-x-auto pb-2"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-        >
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
+        {/* الحاوية المغلقة للشريط */}
+        <div className="overflow-hidden py-2">
+          {/* شريط الـ Track المتحرك لليمين */}
+          <div
+            ref={trackRef}
+            className="flex gap-1 select-none will-change-transform"
+            style={{
+              cursor: "grab",
+              width: "max-content",
+            }}
+            onMouseEnter={pause}
+            onMouseLeave={resume}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            {/* المجموعة الأولى (تبدأ من اليمين) */}
+            <div ref={firstSetRef} className="flex gap-1 flex-shrink-0">
+              {baseSet.map((p, i) => (
+                <ProductCard key={`set1-${p.id}-${i}`} product={p} />
+              ))}
+            </div>
+
+            {/* المجموعة الثانية (إلى يسارها) */}
+            <div className="flex gap-1 flex-shrink-0">
+              {baseSet.map((p, i) => (
+                <ProductCard key={`set2-${p.id}-${i}`} product={p} />
+              ))}
+            </div>
+
+            {/* المجموعة الثالثة (لضمان الامتداد) */}
+            <div className="flex gap-1 flex-shrink-0">
+              {baseSet.map((p, i) => (
+                <ProductCard key={`set3-${p.id}-${i}`} product={p} />
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* سهم يسار — دائماً ظاهر */}
+        {/* سهم يسار */}
         <ArrowBtn direction="left" onClick={goLeft} />
       </div>
     </div>
   );
 }
+
 
 /* ── المكوّن الرئيسي ── */
 export default function ProductSlider() {

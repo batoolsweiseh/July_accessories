@@ -367,22 +367,6 @@ export default function LuckyWheel() {
                 "🎲 دوّر!"
               )}
             </button>
-
-            {/* نتيجة السحب الفورية عند انتهاء الدوران */}
-            {showResult && result && (
-              <div
-                className="rounded-2xl bg-black px-8 py-4 text-center shadow-2xl"
-                style={{ animation: "wheelBounceIn 0.5s ease-out forwards" }}
-              >
-                <p className="text-xs text-white/60 mb-1 tracking-widest uppercase">الفائز</p>
-                <p
-                  style={{ fontFamily: "'Lalezar', serif" }}
-                  className="text-2xl sm:text-3xl text-white"
-                >
-                  🎉 {result}
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>

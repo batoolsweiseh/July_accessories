@@ -393,20 +393,37 @@ export async function updateOrderStatus(orderId: string, status: string) {
   }
 }
 
-/* ─── Loyalty Rewards & Store Codes Actions ─── */
+/* ─── Loyalty Rewards, Store Codes & Customers Actions ─── */
+import { cookies } from "next/headers";
 import {
   getLoyaltyRewards,
   saveLoyaltyReward,
   deleteLoyaltyReward,
   getPurchaseCodes,
   generateStorePurchaseCode,
+  createOrUpdatePurchaseCode,
+  togglePurchaseCodeStatus,
+  deletePurchaseCode,
+  getAllCustomers,
+  adjustCustomerPoints,
   deductCustomerPointsByPhone,
   lookupCustomerPointsByPhone,
   resetCustomerPointsByPhone,
 } from "@/lib/loyalty";
 
+/** فحص صلاحية الأدمن في الخادم لحماية العمليات الإدارية */
+async function verifyAdminAuth() {
+  const cookieStore = cookies();
+  const session = cookieStore.get("admin_session")?.value;
+  const adminPassword = process.env.ADMIN_PASSWORD || "July2026";
+  if (!session || session !== adminPassword) {
+    throw new Error("غير مصرح لك بتنفيذ هذه العملية. يرجى تسجيل الدخول كمسؤول.");
+  }
+}
+
 export async function fetchAdminLoyaltyData() {
   try {
+    await verifyAdminAuth();
     const [rewards, codes] = await Promise.all([
       getLoyaltyRewards(false),
       getPurchaseCodes(),
@@ -414,6 +431,77 @@ export async function fetchAdminLoyaltyData() {
     return { success: true, rewards, codes };
   } catch (error: any) {
     console.error("fetchAdminLoyaltyData error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function fetchAdminCustomersAction() {
+  try {
+    await verifyAdminAuth();
+    const customers = await getAllCustomers();
+    return { success: true, customers };
+  } catch (error: any) {
+    console.error("fetchAdminCustomersAction error:", error);
+    return { success: false, error: error.message, customers: [] };
+  }
+}
+
+export async function adjustCustomerPointsAction(
+  userId: string,
+  pointsDelta: number,
+  reason: string
+) {
+  try {
+    await verifyAdminAuth();
+    const result = await adjustCustomerPoints(userId, pointsDelta, reason);
+    revalidatePath("/admin");
+    revalidatePath("/account");
+    return result;
+  } catch (error: any) {
+    console.error("adjustCustomerPointsAction error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function createOrUpdatePurchaseCodeAction(data: {
+  id?: string;
+  code: string;
+  points: number;
+  note?: string;
+  is_active?: boolean;
+  usage_type?: "once_per_user" | "once_globally";
+}) {
+  try {
+    await verifyAdminAuth();
+    const code = await createOrUpdatePurchaseCode(data);
+    revalidatePath("/admin");
+    return { success: true, code };
+  } catch (error: any) {
+    console.error("createOrUpdatePurchaseCodeAction error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function togglePurchaseCodeStatusAction(id: string, is_active: boolean) {
+  try {
+    await verifyAdminAuth();
+    const ok = await togglePurchaseCodeStatus(id, is_active);
+    revalidatePath("/admin");
+    return { success: ok };
+  } catch (error: any) {
+    console.error("togglePurchaseCodeStatusAction error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deletePurchaseCodeAction(id: string) {
+  try {
+    await verifyAdminAuth();
+    const ok = await deletePurchaseCode(id);
+    revalidatePath("/admin");
+    return { success: ok };
+  } catch (error: any) {
+    console.error("deletePurchaseCodeAction error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -429,6 +517,7 @@ export async function saveLoyaltyRewardAction(data: {
   image?: string;
 }) {
   try {
+    await verifyAdminAuth();
     const reward = await saveLoyaltyReward(data);
     revalidatePath("/admin");
     revalidatePath("/account");
@@ -441,6 +530,7 @@ export async function saveLoyaltyRewardAction(data: {
 
 export async function deleteLoyaltyRewardAction(id: string) {
   try {
+    await verifyAdminAuth();
     const ok = await deleteLoyaltyReward(id);
     revalidatePath("/admin");
     revalidatePath("/account");
@@ -453,6 +543,7 @@ export async function deleteLoyaltyRewardAction(id: string) {
 
 export async function generateStorePurchaseCodeAction(points: number, note?: string) {
   try {
+    await verifyAdminAuth();
     const code = await generateStorePurchaseCode(points, note);
     revalidatePath("/admin");
     return { success: true, code };
@@ -474,6 +565,7 @@ export async function deductCustomerPointsAction(
   error?: string;
 }> {
   try {
+    await verifyAdminAuth();
     const result = await deductCustomerPointsByPhone(phone, points, reason);
     revalidatePath("/admin");
     revalidatePath("/account");
@@ -491,6 +583,7 @@ export async function lookupCustomerPointsAction(phone: string): Promise<{
   error?: string;
 }> {
   try {
+    await verifyAdminAuth();
     return await lookupCustomerPointsByPhone(phone);
   } catch (error: any) {
     return { success: false, customerName: "", points: 0, error: error.message };
@@ -509,6 +602,7 @@ export async function resetCustomerPointsAction(
   error?: string;
 }> {
   try {
+    await verifyAdminAuth();
     const result = await resetCustomerPointsByPhone(phone, reason);
     revalidatePath("/admin");
     revalidatePath("/account");

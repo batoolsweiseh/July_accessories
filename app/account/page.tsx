@@ -564,7 +564,7 @@ export default function MyAccountPage() {
                 <form onSubmit={handleRedeemCode} className="mt-6 space-y-4">
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-charcoal">
-                      كود المشتريات
+                      كود الخصم / نقاط المشتريات
                     </label>
                     <div className="relative">
                       <input
@@ -572,7 +572,7 @@ export default function MyAccountPage() {
                         dir="ltr"
                         value={code}
                         onChange={(e) => setCode(e.target.value.toUpperCase())}
-                        placeholder="مثال: JULY-100 أو JULY-SHOP-50"
+                        placeholder="مثال: JULY-100 أو VIP50"
                         disabled={submitting}
                         className="w-full rounded-2xl border border-steel/30 bg-paper px-4 py-3.5 text-base font-mono uppercase tracking-wider text-charcoal outline-none transition focus:border-[#E0457D] focus:ring-2 focus:ring-[#E0457D]/10 disabled:opacity-60"
                       />
@@ -581,7 +581,7 @@ export default function MyAccountPage() {
                       </span>
                     </div>
                     <p className="mt-1.5 text-xs text-charcoal/50">
-                      كل كود صالح للاستخدام مرة واحدة فقط بحسابك.
+                      أدخلي الكود الذي حصلتِ عليه لإضافة النقاط إلى رصيدك فوراً (صالح للاستخدام مرة واحدة بحسابك).
                     </p>
                   </div>
 
@@ -611,9 +611,9 @@ export default function MyAccountPage() {
                     شروط وقواعد النقاط:
                   </p>
                   <ul className="list-disc list-inside space-y-1 pr-1">
-                    <li>يتم فحص الكود والتحقق من رصيده على الخادم مباشرة.</li>
-                    <li>لا يمكن تكرار استخدام الكود نفسه من نفس الحساب أو أي حساب آخر.</li>
-                    <li>يتم تسجيل وتوثيق عملية إضافة النقاط في سجل حركات حسابك.</li>
+                    <li>يتم التحقق من صلاحية الكود وإضافة النقاط بطريقة آمنة من الخادم.</li>
+                    <li>لا يمكن تكرار استخدام الكود نفسه أكثر من مرة لنفس الحساب.</li>
+                    <li>يتم توثيق كل حركة في سجل نقاطك وتبقى محفوظة دائماً بحسابك.</li>
                   </ul>
                 </div>
               </div>

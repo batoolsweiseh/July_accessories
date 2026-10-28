@@ -13,9 +13,11 @@ import {
   fetchOrders,
   updateOrderStatus,
   fetchAdminLoyaltyData,
+  fetchAdminCustomersAction,
 } from "./actions";
 import LoyaltyAdminSection from "@/components/LoyaltyAdminSection";
-import { LoyaltyReward, PurchaseCode } from "@/lib/loyalty";
+import CustomersAdminSection from "@/components/CustomersAdminSection";
+import { LoyaltyReward, PurchaseCode, CustomerUser } from "@/lib/loyalty";
 
 /* ─── Types ─── */
 type Category = {
@@ -78,6 +80,19 @@ const FALLBACK_SUBCATEGORIES: Subcategory[] = [
 
 const PAGE_SIZE = 10;
 const WHEEL_KEY = "july-wheel-segments";
+
+function getPaginationItems(currentPage: number, totalPages: number): (number | string)[] {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 3) {
+    return [1, 2, 3, "...", totalPages];
+  }
+  if (currentPage >= totalPages - 2) {
+    return [1, "...", totalPages - 2, totalPages - 1, totalPages];
+  }
+  return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+}
 
 const WHEEL_COLORS = [
   "#FF6B6B", "#FFD93D", "#6BCB77", "#4D96FF",
@@ -551,7 +566,8 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<"products" | "orders" | "loyalty">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "orders" | "users_points" | "loyalty">("products");
+  const [customers, setCustomers] = useState<CustomerUser[]>([]);
   const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
   const [codes, setCodes] = useState<PurchaseCode[]>([]);
 
@@ -567,10 +583,11 @@ export default function AdminPage() {
   /* ── Load Data ── */
   const loadData = async () => {
     setLoading(true);
-    const [result, ordersResult, loyaltyResult] = await Promise.all([
+    const [result, ordersResult, loyaltyResult, customersResult] = await Promise.all([
       fetchAdminData(),
       fetchOrders(),
       fetchAdminLoyaltyData(),
+      fetchAdminCustomersAction(),
     ]);
     
     if (result.success) {
@@ -598,6 +615,10 @@ export default function AdminPage() {
     if (loyaltyResult && loyaltyResult.success) {
       setRewards(loyaltyResult.rewards || []);
       setCodes(loyaltyResult.codes || []);
+    }
+
+    if (customersResult && customersResult.success) {
+      setCustomers(customersResult.customers || []);
     }
     setLoading(false);
   };
@@ -918,6 +939,17 @@ export default function AdminPage() {
                 }`}
               >
                 🛍️ إدارة الطلبات ({orders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("users_points")}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
+                  activeTab === "users_points"
+                    ? "border-neutral-900 text-neutral-900"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                👥 المستخدمون والنقاط ({customers.length})
               </button>
               <button
                 type="button"
@@ -1474,19 +1506,31 @@ export default function AdminPage() {
                           </button>
 
                           {/* Page Numbers */}
-                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                            <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
-                              className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all border ${
-                                page === safePage
-                                  ? "bg-neutral-900 text-white border-neutral-900"
-                                  : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          ))}
+                          {getPaginationItems(safePage, totalPages).map((item, idx) => {
+                            if (typeof item === "string") {
+                              return (
+                                <span
+                                  key={`ellipsis-${idx}`}
+                                  className="w-6 text-center text-xs font-bold text-slate-400 select-none"
+                                >
+                                  ...
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                key={item}
+                                onClick={() => setCurrentPage(item)}
+                                className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all border ${
+                                  item === safePage
+                                    ? "bg-neutral-900 text-white border-neutral-900"
+                                    : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"
+                                }`}
+                              >
+                                {item}
+                              </button>
+                            );
+                          })}
 
                           {/* Next */}
                           <button
@@ -1506,6 +1550,12 @@ export default function AdminPage() {
           </>
         ) : activeTab === "orders" ? (
           <OrdersAdminSection orders={orders} onUpdateStatus={handleUpdateStatus} />
+        ) : activeTab === "users_points" ? (
+          <CustomersAdminSection
+            customers={customers}
+            onRefresh={loadData}
+            onToast={(msg, type) => showToast(msg, type)}
+          />
         ) : (
           <LoyaltyAdminSection
             rewards={rewards}

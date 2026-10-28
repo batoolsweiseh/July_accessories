@@ -38,6 +38,8 @@ export async function POST(request: Request) {
       user_metadata: {
         full_name: cleanName,
         phone: cleanPhone,
+        points: 0,
+        loyalty_history: [],
       },
     });
 
@@ -53,6 +55,21 @@ export async function POST(request: Request) {
         { success: false, error: createError.message || "فشل إنشاء الحساب، يرجى المحاولة لاحقاً" },
         { status: 400 }
       );
+    }
+
+    // مزامنة الملف الشخصي مع جدول user_profiles إن وجد
+    if (createData?.user) {
+      try {
+        await supabaseAdmin.from("user_profiles").upsert({
+          id: createData.user.id,
+          full_name: cleanName,
+          phone: cleanPhone,
+          email,
+          points: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "id" });
+      } catch { /* في حال عدم وجود الجدول */ }
     }
 
     // تسجيل الدخول فوراً لتوليد Session Token
