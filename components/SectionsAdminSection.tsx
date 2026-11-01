@@ -361,8 +361,8 @@ export default function SectionsAdminSection({
               onClick={() => setStatusFilter("hidden")}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 statusFilter === "hidden"
-                  ? "bg-rose-600 text-white"
-                  : "bg-rose-50 text-rose-700 hover:bg-rose-100"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-red-50 text-red-700 hover:bg-red-100"
               }`}
             >
               المخفية فقط
@@ -372,8 +372,8 @@ export default function SectionsAdminSection({
               onClick={() => setStatusFilter("out_of_stock")}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 statusFilter === "out_of_stock"
-                  ? "bg-amber-600 text-white"
-                  : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-orange-50 text-orange-700 hover:bg-orange-100"
               }`}
             >
               التي نفدت منتجاتها
@@ -389,7 +389,7 @@ export default function SectionsAdminSection({
             onClick={() => setSelectedCatFilter("all")}
             className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
               selectedCatFilter === "all"
-                ? "bg-rose-600 text-white"
+                ? "bg-emerald-600 text-white shadow-sm"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
@@ -404,7 +404,7 @@ export default function SectionsAdminSection({
                 onClick={() => setSelectedCatFilter(c.slug)}
                 className={`px-3 py-1 text-xs rounded-full font-medium transition-colors ${
                   selectedCatFilter === c.slug
-                    ? "bg-rose-600 text-white"
+                    ? "bg-emerald-600 text-white shadow-sm"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
