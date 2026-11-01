@@ -17,6 +17,7 @@ import {
 } from "./actions";
 import LoyaltyAdminSection from "@/components/LoyaltyAdminSection";
 import CustomersAdminSection from "@/components/CustomersAdminSection";
+import SectionsAdminSection, { SubcategoriesSettings } from "@/components/SectionsAdminSection";
 import { LoyaltyReward, PurchaseCode, CustomerUser } from "@/lib/loyalty";
 
 /* ─── Types ─── */
@@ -566,7 +567,12 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<"products" | "orders" | "users_points" | "loyalty">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "orders" | "sections" | "users_points" | "loyalty">("products");
+  const [subcategoriesSettings, setSubcategoriesSettings] = useState<SubcategoriesSettings>({
+    hidden_ids: [],
+    hidden_categories: [],
+    auto_hide_empty: false,
+  });
   const [customers, setCustomers] = useState<CustomerUser[]>([]);
   const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
   const [codes, setCodes] = useState<PurchaseCode[]>([]);
@@ -600,6 +606,9 @@ export default function AdminPage() {
           : FALLBACK_SUBCATEGORIES
       );
       setProducts(result.products || []);
+      if (result.subcategoriesSettings) {
+        setSubcategoriesSettings(result.subcategoriesSettings);
+      }
     } else {
       setCategories(FALLBACK_CATEGORIES);
       setSubcategories(FALLBACK_SUBCATEGORIES);
@@ -942,6 +951,17 @@ export default function AdminPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setActiveTab("sections")}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
+                  activeTab === "sections"
+                    ? "border-neutral-900 text-neutral-900"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                🗂️ الأقسام والظهور
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab("users_points")}
                 className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
                   activeTab === "users_points"
@@ -1117,11 +1137,16 @@ export default function AdminPage() {
                       className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white disabled:bg-slate-50 disabled:text-slate-400"
                     >
                       <option value="">اختر القسم الفرعي (اختياري)</option>
-                      {filteredSubcategories.map((sub) => (
-                        <option key={sub.id} value={sub.id}>
-                          {sub.title_ar}
-                        </option>
-                      ))}
+                      {filteredSubcategories.map((sub) => {
+                        const isHidden =
+                          subcategoriesSettings.hidden_ids.includes(sub.id) ||
+                          subcategoriesSettings.hidden_ids.includes(sub.title_ar);
+                        return (
+                          <option key={sub.id} value={sub.id}>
+                            {sub.title_ar} {isHidden ? "(مخفي من المتجر)" : ""}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -1550,6 +1575,15 @@ export default function AdminPage() {
           </>
         ) : activeTab === "orders" ? (
           <OrdersAdminSection orders={orders} onUpdateStatus={handleUpdateStatus} />
+        ) : activeTab === "sections" ? (
+          <SectionsAdminSection
+            categories={categories}
+            subcategories={subcategories}
+            products={products}
+            initialSettings={subcategoriesSettings}
+            onToast={(msg, type) => showToast(msg, type)}
+            onRefresh={loadData}
+          />
         ) : activeTab === "users_points" ? (
           <CustomersAdminSection
             customers={customers}

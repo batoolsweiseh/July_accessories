@@ -77,6 +77,35 @@ export default async function CategoryPage({
 
   const normalizedSlug = slug.trim().toLowerCase();
 
+  // 1.5. Fetch subcategories visibility settings
+  const { data: settingsRow } = await supabaseAdmin
+    .from("categories")
+    .select("title_ar")
+    .eq("slug", "subcategories_settings")
+    .maybeSingle();
+
+  const hiddenSubcategoryIds = new Set<string>();
+  const hiddenCategorySlugs = new Set<string>();
+  let autoHideEmpty = false;
+
+  if (settingsRow && settingsRow.title_ar) {
+    try {
+      const parsed = JSON.parse(settingsRow.title_ar);
+      if (Array.isArray(parsed.hidden_ids)) {
+        parsed.hidden_ids.forEach((id: string) => hiddenSubcategoryIds.add(id));
+      }
+      if (Array.isArray(parsed.hidden_categories)) {
+        parsed.hidden_categories.forEach((c: string) => hiddenCategorySlugs.add(c));
+      }
+      autoHideEmpty = !!parsed.auto_hide_empty;
+    } catch { /* ignore */ }
+  }
+
+  // If this entire category is hidden by the admin, return notFound
+  if (hiddenCategorySlugs.has(normalizedSlug)) {
+    notFound();
+  }
+
   // 2. Fetch subcategories from Supabase (use admin to bypass RLS)
   const { data: dbSubcategories, error: subcategoriesError } = await supabaseAdmin
     .from("subcategories")
@@ -86,10 +115,6 @@ export default async function CategoryPage({
   if (subcategoriesError) {
     console.error("Error fetching subcategories from Supabase:", subcategoriesError);
   }
-
-  const subcategories = dbSubcategories && dbSubcategories.length > 0
-    ? dbSubcategories.map((s) => s.title_ar)
-    : fallbackCategory?.subcategories || [];
 
   // 3. Fetch products from Supabase (use admin to bypass RLS)
   let { data: dbProducts, error } = await supabaseAdmin
@@ -121,12 +146,44 @@ export default async function CategoryPage({
 
   const productsData = dbProducts || [];
 
+  // Determine hidden subcategories (manual hide or auto-hide if out of stock)
+  const isSubcategoryHidden = (sub: { id: string; title_ar: string }) => {
+    if (hiddenSubcategoryIds.has(sub.id) || hiddenSubcategoryIds.has(sub.title_ar)) {
+      return true;
+    }
+    if (autoHideEmpty) {
+      const inStockCount = productsData.filter(
+        (p: any) => p.subcategory_id === sub.id && p.in_stock !== false
+      ).length;
+      if (inStockCount === 0) return true;
+    }
+    return false;
+  };
+
+  const visibleDbSubcategories = (dbSubcategories || []).filter((s) => !isSubcategoryHidden(s));
+  const hiddenSubIds = new Set(
+    (dbSubcategories || [])
+      .filter((s) => isSubcategoryHidden(s))
+      .map((s) => s.id)
+  );
+
+  // If subcategories were fetched from the database, use visible ones (even if empty).
+  // Only use fallbackCategory if the database query returned nothing.
+  const subcategories =
+    dbSubcategories && dbSubcategories.length > 0
+      ? visibleDbSubcategories.map((s) => s.title_ar)
+      : (fallbackCategory?.subcategories || []).filter(
+          (title: string) => !hiddenSubcategoryIds.has(title)
+        );
+
   const subcategoryMap = new Map(
     (dbSubcategories || []).map((s: any) => [s.id, s.title_ar])
   );
 
-  // Map database products to the layout structure
-  const products = productsData.map((p: any) => {
+  // Map database products to the layout structure, excluding hidden subcategories
+  const products = productsData
+    .filter((p: any) => !p.subcategory_id || !hiddenSubIds.has(p.subcategory_id))
+    .map((p: any) => {
     const desc = p.description || "";
     const isNew = desc.includes("[tag:new]");
     const isTrending = desc.includes("[tag:trending]");
@@ -148,6 +205,7 @@ export default async function CategoryPage({
       pieces,
     };
   });
+
 
   return (
     <>

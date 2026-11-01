@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 
 const categories = [
@@ -34,6 +35,24 @@ const categories = [
 ];
 
 export default function CategoryCards() {
+  const [hiddenCategories, setHiddenCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/subcategories-settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.hidden_categories)) {
+          setHiddenCategories(data.hidden_categories);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const visibleCategories = categories.filter((cat) => {
+    const slug = cat.href.replace("/category/", "");
+    return !hiddenCategories.includes(slug);
+  });
+
   return (
     <section id="shop-categories" className="bg-paper py-12 sm:py-16" dir="rtl">
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
@@ -48,7 +67,7 @@ export default function CategoryCards() {
         </div>
  
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-          {categories.map((cat) => (
+          {visibleCategories.map((cat) => (
             <a
               key={cat.id}
               href={cat.href}

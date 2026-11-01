@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Logo from "./Logo";
@@ -18,15 +18,14 @@ const navCategories: NavCategory[] = [
     label: "إكسسوارات",
     sub: [
       "أساور",
-      "خاتم شبيه للذهب",
-      "خواتم ماركة",
+      "خاتم شبيه ذهب",
+      "خاتم ماركة",
       "سنسال",
       "حلق كبس",
       "حلق طويل",
       "خلخال",
       "دبل",
       "أطقم أساور",
-      "أساور سحب",
     ],
   },
   {
@@ -42,11 +41,12 @@ const navCategories: NavCategory[] = [
     sub: [
       "ساعات ماركة ستاتي",
       "ساعات ماركة رجالي",
-      "ساعات شبيه الماركة ستاتي",
-      "ساعات شبيه الماركة رجالي",
+      "ساعات شبيه ماركة ستاتي",
+      "ساعات شبيه ماركة رجالي",
     ],
   },
 ];
+
 
 const staticLinks = [
   { label: "الرئيسية", href: "/" },
@@ -91,6 +91,48 @@ export default function Header() {
       setAuthUser(null);
     }
   };
+
+  const [visibleByCat, setVisibleByCat] = useState<Record<string, string[]> | null>(null);
+  const [hiddenCategories, setHiddenCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/subcategories-settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.visible_subcategories_by_category) {
+          setVisibleByCat(data.visible_subcategories_by_category);
+        }
+        if (data && Array.isArray(data.hidden_categories)) {
+          setHiddenCategories(data.hidden_categories);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const visibleNavCategories = useMemo(() => {
+    const categorySlugMap: Record<string, string> = {
+      "إكسسوارات": "accessories",
+      "أطقم": "sets",
+      "حقائب": "bags",
+      "ساعات": "watches",
+    };
+
+    return navCategories
+      .filter((cat) => {
+        const slug = categorySlugMap[cat.label];
+        if (slug && hiddenCategories.includes(slug)) return false;
+        return true;
+      })
+      .map((cat) => {
+        const slug = categorySlugMap[cat.label];
+        const liveSub = visibleByCat && slug ? visibleByCat[slug] : null;
+        return {
+          ...cat,
+          sub: liveSub !== null && liveSub !== undefined ? liveSub : cat.sub,
+        };
+      })
+      .filter((cat) => cat.sub.length > 0);
+  }, [visibleByCat, hiddenCategories]);
 
   useEffect(() => {
     checkAuth();
@@ -242,7 +284,7 @@ export default function Header() {
   }, []);
 
   /* ── حساب grid-cols للأقسام الفرعية ── */
-  const activeCat = navCategories.find((c) => c.label === activeMenu);
+  const activeCat = visibleNavCategories.find((c) => c.label === activeMenu);
   const subCols = activeCat
     ? activeCat.sub.length > 6
       ? "grid-cols-3"
@@ -353,7 +395,7 @@ export default function Header() {
             </Link>
 
             {/* فئات الميجا منيو */}
-            {navCategories.map((cat) => (
+            {visibleNavCategories.map((cat) => (
               <button
                 key={cat.label}
                 type="button"
@@ -469,7 +511,7 @@ export default function Header() {
       >
         <nav className="flex flex-col gap-1 px-5 py-4" dir="rtl">
           {/* فئات قابلة للفتح */}
-          {navCategories.map((cat) => (
+          {visibleNavCategories.map((cat) => (
             <div key={cat.label}>
               <button
                 type="button"

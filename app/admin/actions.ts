@@ -17,8 +17,21 @@ export async function fetchAdminData() {
     if (productsRes.error) throw productsRes.error;
 
     const categoryOrder = ["accessories", "sets", "bags", "watches"];
+    let subcategoriesSettings = { hidden_ids: [] as string[], hidden_categories: [] as string[], auto_hide_empty: false };
+    const settingsRow = (categoriesRes.data || []).find((c: any) => c.slug === "subcategories_settings");
+    if (settingsRow && settingsRow.title_ar) {
+      try {
+        const parsed = JSON.parse(settingsRow.title_ar);
+        subcategoriesSettings = {
+          hidden_ids: Array.isArray(parsed.hidden_ids) ? parsed.hidden_ids : [],
+          hidden_categories: Array.isArray(parsed.hidden_categories) ? parsed.hidden_categories : [],
+          auto_hide_empty: !!parsed.auto_hide_empty,
+        };
+      } catch { /* ignore parsing error */ }
+    }
+
     const sortedCategories = (categoriesRes.data || [])
-      .filter((c: any) => c.slug !== "wheel_settings")
+      .filter((c: any) => c.slug !== "wheel_settings" && c.slug !== "subcategories_settings")
       .sort((a: any, b: any) => {
         const idxA = categoryOrder.indexOf(a.slug);
         const idxB = categoryOrder.indexOf(b.slug);
@@ -30,6 +43,7 @@ export async function fetchAdminData() {
       categories: sortedCategories,
       subcategories: subcategoriesRes.data || [],
       products: productsRes.data || [],
+      subcategoriesSettings,
     };
   } catch (error: any) {
     console.error("fetchAdminData error:", error);
@@ -613,4 +627,63 @@ export async function resetCustomerPointsAction(
   }
 }
 
+export async function fetchSubcategoriesSettingsAction() {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("categories")
+      .select("title_ar")
+      .eq("slug", "subcategories_settings")
+      .maybeSingle();
 
+    if (error || !data || !data.title_ar) {
+      return { success: true, settings: { hidden_ids: [], hidden_categories: [], auto_hide_empty: false } };
+    }
+
+    const parsed = JSON.parse(data.title_ar);
+    return {
+      success: true,
+      settings: {
+        hidden_ids: Array.isArray(parsed.hidden_ids) ? parsed.hidden_ids : [],
+        hidden_categories: Array.isArray(parsed.hidden_categories) ? parsed.hidden_categories : [],
+        auto_hide_empty: !!parsed.auto_hide_empty,
+      },
+    };
+  } catch (error: any) {
+    console.error("fetchSubcategoriesSettingsAction error:", error);
+    return { success: false, error: error.message, settings: { hidden_ids: [], hidden_categories: [], auto_hide_empty: false } };
+  }
+}
+
+export async function saveSubcategoriesSettingsAction(settings: {
+  hidden_ids: string[];
+  hidden_categories?: string[];
+  auto_hide_empty: boolean;
+}) {
+  try {
+    const payload = {
+      hidden_ids: Array.isArray(settings.hidden_ids) ? settings.hidden_ids : [],
+      hidden_categories: Array.isArray(settings.hidden_categories) ? settings.hidden_categories : [],
+      auto_hide_empty: !!settings.auto_hide_empty,
+    };
+
+    const { error } = await supabaseAdmin.from("categories").upsert(
+      {
+        slug: "subcategories_settings",
+        title_ar: JSON.stringify(payload),
+        title_en: "SUBCATEGORIES_SETTINGS",
+      },
+      { onConflict: "slug" }
+    );
+
+    if (error) throw error;
+
+    revalidatePath("/");
+    revalidatePath("/category/[slug]", "page");
+    revalidatePath("/admin");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("saveSubcategoriesSettingsAction error:", error);
+    return { success: false, error: error.message };
+  }
+}
