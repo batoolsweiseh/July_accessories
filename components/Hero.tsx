@@ -1,19 +1,42 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
+
+const HERO_VIDEOS = [
+  "/videos/hero-1.mp4",
+  "/videos/hero-2.mp4",
+];
+
 export default function Hero() {
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleVideoEnded = () => {
+    setCurrentVideoIndex((prevIndex) => (prevIndex + 1) % HERO_VIDEOS.length);
+  };
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {});
+    }
+  }, [currentVideoIndex]);
+
   return (
     <>
       <section className="relative w-full min-h-screen overflow-hidden">
         {/* فيديو الخلفية */}
         <video
+          ref={videoRef}
+          key={HERO_VIDEOS[currentVideoIndex]}
           autoPlay
           muted
-          loop
           playsInline
+          onEnded={handleVideoEnded}
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover object-center"
         >
-          <source src="/hero-video.mp4" type="video/mp4" />
+          <source src={HERO_VIDEOS[currentVideoIndex]} type="video/mp4" />
         </video>
 
         {/* Overlay */}

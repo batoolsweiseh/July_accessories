@@ -1,4 +1,5 @@
 import Header from "@/components/Header";
+import NoticeBoxes from "@/components/NoticeBoxes";
 import Hero from "@/components/Hero";
 import CategoryCards from "@/components/CategoryCards";
 import ProductSlider from "@/components/ProductSlider";
@@ -13,6 +14,7 @@ export default function Home() {
   return (
     <main>
       <Header />
+      <NoticeBoxes />
       <Hero />
       <Ticker />
       <CategoryCards />
