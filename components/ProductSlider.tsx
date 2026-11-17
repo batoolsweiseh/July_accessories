@@ -474,51 +474,79 @@ export default function ProductSlider() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 1. قراءة الكاش المحلي فوراً لتظهر المنتجات بلحظة واحدة بدون انتظار الشبكة
+    try {
+      const cached = window.localStorage.getItem("july-slider-cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed.accessories) && parsed.accessories.length > 0) setAccessories(parsed.accessories);
+        if (Array.isArray(parsed.bags) && parsed.bags.length > 0) setBags(parsed.bags);
+        if (Array.isArray(parsed.sets) && parsed.sets.length > 0) setSets(parsed.sets);
+        if (Array.isArray(parsed.watches) && parsed.watches.length > 0) setWatches(parsed.watches);
+        setLoading(false);
+      }
+    } catch {
+      /* ignore */
+    }
+
+    // 2. جلب المنتجات دفعة واحدة بطلب واحد موحد (Batch) بدلاً من 4 طلبات منفصلة
     async function load() {
       try {
-        const fetchCategory = async (cat: string): Promise<Product[]> => {
-          const res = await fetch(`/api/products?category=${cat}`, { cache: "no-store" });
-          const json = await res.json();
-          const allProds = (json.data || []).map((p: any) => {
-            const desc = p.description || "";
-            const isNew = !!p.is_new || desc.includes("[tag:new]");
-            const isTrending = !!p.is_trending || desc.includes("[tag:trending]");
-            const hasColors = desc.includes("[tag:colors]");
-            const pieces = parseProductPieces(desc);
-            return {
-              id: p.id,
-              name: p.name,
-              price: String(p.price) + " ₪",
-              category: p.category_slug,
-              image: p.image_url || "/product-placeholder.png",
-              isFeatured: !!p.is_featured,
-              inStock: p.in_stock ?? true,
-              isNew,
-              isTrending,
-              hasColors,
-              pieces,
-            };
-          });
+        const res = await fetch("/api/products?categories=accessories,bags,sets,watches");
+        if (!res.ok) throw new Error("Failed to fetch products");
+        const json = await res.json();
+        
+        const allProds: Product[] = (json.data || []).map((p: any) => {
+          const desc = p.description || "";
+          const isNew = !!p.is_new || desc.includes("[tag:new]");
+          const isTrending = !!p.is_trending || desc.includes("[tag:trending]");
+          const hasColors = desc.includes("[tag:colors]");
+          const pieces = parseProductPieces(desc);
+          return {
+            id: p.id,
+            name: p.name,
+            price: String(p.price) + " ₪",
+            category: p.category_slug,
+            image: p.image_url || "/product-placeholder.png",
+            isFeatured: !!p.is_featured,
+            inStock: p.in_stock ?? true,
+            isNew,
+            isTrending,
+            hasColors,
+            pieces,
+          };
+        });
 
-          return allProds.filter((p: Product) => p.isFeatured || p.isNew || p.isTrending);
-        };
+        const filterSlider = (cat: string) =>
+          allProds.filter((p: Product) => p.category === cat && (p.isFeatured || p.isNew || p.isTrending));
 
-        const [accData, bagsData, setsData, watchesData] = await Promise.all([
-          fetchCategory("accessories"),
-          fetchCategory("bags"),
-          fetchCategory("sets"),
-          fetchCategory("watches"),
-        ]);
+        const accData = filterSlider("accessories");
+        const bagsData = filterSlider("bags");
+        const setsData = filterSlider("sets");
+        const watchesData = filterSlider("watches");
 
-        setAccessories(accData);
-        setBags(bagsData);
-        setSets(setsData);
-        setWatches(watchesData);
-      } catch {
-        setAccessories([]);
-        setBags([]);
-        setSets([]);
-        setWatches([]);
+        if (accData.length > 0) setAccessories(accData);
+        if (bagsData.length > 0) setBags(bagsData);
+        if (setsData.length > 0) setSets(setsData);
+        if (watchesData.length > 0) setWatches(watchesData);
+
+        // حفظ في الكاش المحلي للمرات القادمة
+        try {
+          window.localStorage.setItem(
+            "july-slider-cache",
+            JSON.stringify({
+              accessories: accData,
+              bags: bagsData,
+              sets: setsData,
+              watches: watchesData,
+            })
+          );
+        } catch {
+          /* ignore */
+        }
+      } catch (err) {
+        console.warn("Products load warning (keeping cached data):", err);
+        // حماية هامة جداً: لا نقوم بتفريغ المنتجات أبداً عند حدوث ضغط أو خطأ شبكة
       } finally {
         setLoading(false);
       }

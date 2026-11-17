@@ -32,6 +32,7 @@ export default function Hero() {
           autoPlay
           muted
           playsInline
+          preload="metadata"
           onEnded={handleVideoEnded}
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover object-center"

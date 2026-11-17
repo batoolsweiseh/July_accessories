@@ -2,7 +2,11 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 120; // كاش لمدة دقيقتين لتخفيف الحمل عن قاعدة البيانات
+
+const cacheHeaders = {
+  "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+};
 
 export interface SubcategoriesSettings {
   hidden_ids: string[];
@@ -83,13 +87,16 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({
-      hidden_ids: parsedSettings.hidden_ids,
-      hidden_categories: parsedSettings.hidden_categories || [],
-      auto_hide_empty: parsedSettings.auto_hide_empty,
-      visible_subcategories_by_category: visibleSubcategoriesByCategory,
-      subcategories: subcategories,
-    });
+    return NextResponse.json(
+      {
+        hidden_ids: parsedSettings.hidden_ids,
+        hidden_categories: parsedSettings.hidden_categories || [],
+        auto_hide_empty: parsedSettings.auto_hide_empty,
+        visible_subcategories_by_category: visibleSubcategoriesByCategory,
+        subcategories: subcategories,
+      },
+      { headers: cacheHeaders }
+    );
   } catch (err: any) {
     console.error("Error in GET /api/subcategories-settings:", err);
     return NextResponse.json({

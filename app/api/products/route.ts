@@ -1,22 +1,20 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const revalidate = 60; // كاش لمدة 60 ثانية لحماية قاعدة البيانات من الضغط العالي
 
-const noCacheHeaders = {
-  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
-  "Pragma": "no-cache",
-  "Expires": "0",
+const cacheHeaders = {
+  "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
 };
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category");
+  const categories = searchParams.get("categories");
   const ids = searchParams.get("ids");
 
-  if (!category && !ids) {
-    return NextResponse.json({ data: [] }, { headers: noCacheHeaders });
+  if (!category && !categories && !ids) {
+    return NextResponse.json({ data: [] }, { headers: cacheHeaders });
   }
 
   try {
@@ -27,7 +25,21 @@ export async function GET(request: Request) {
         .select("id, name, price, category_slug, image_url, is_featured, in_stock")
         .in("id", idArray);
       if (error) throw error;
-      return NextResponse.json({ data: data || [] }, { headers: noCacheHeaders });
+      return NextResponse.json({ data: data || [] }, { headers: cacheHeaders });
+    }
+
+    // دعم الاستعلام المتعدد لتصنيفات مجمعة في طلب واحد
+    const multiCats = categories || (category?.includes(",") ? category : null);
+    if (multiCats) {
+      const catList = multiCats.split(",").map((c) => c.trim().toLowerCase());
+      const { data, error } = await supabaseAdmin
+        .from("products")
+        .select("id, name, price, category_slug, image_url, is_featured, in_stock, description")
+        .in("category_slug", catList)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return NextResponse.json({ data: data || [] }, { headers: cacheHeaders });
     }
 
     const normalizedCategory = category ? category.trim() : "";
@@ -40,8 +52,6 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false })
       .limit(100);
 
-    // Use case-insensitive partial match so deployed category parameter
-    // still finds products if casing or minor differences exist.
     if (normalizedCategory) {
       query = query.ilike("category_slug", `%${normalizedCategory}%`);
     }
@@ -49,10 +59,10 @@ export async function GET(request: Request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return NextResponse.json({ data: data || [] }, { headers: noCacheHeaders });
+    return NextResponse.json({ data: data || [] }, { headers: cacheHeaders });
   } catch (error: any) {
     console.error("products API error:", error);
-    return NextResponse.json({ data: [], error: error.message }, { status: 500, headers: noCacheHeaders });
+    return NextResponse.json({ data: [], error: error.message }, { status: 500, headers: cacheHeaders });
   }
 }
 

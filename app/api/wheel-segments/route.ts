@@ -1,7 +1,11 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300; // كاش 5 دقائق لحماية السيرفر
+
+const cacheHeaders = {
+  "Cache-Control": "public, s-maxage=300, stale-while-revalidate=1200",
+};
 
 export async function GET() {
   try {
@@ -12,13 +16,13 @@ export async function GET() {
       .single();
 
     if (error || !data || !data.title_ar) {
-      return NextResponse.json({ segments: [] });
+      return NextResponse.json({ segments: [] }, { headers: cacheHeaders });
     }
 
     const segments = JSON.parse(data.title_ar);
-    return NextResponse.json({ segments: Array.isArray(segments) ? segments : [] });
+    return NextResponse.json({ segments: Array.isArray(segments) ? segments : [] }, { headers: cacheHeaders });
   } catch {
-    return NextResponse.json({ segments: [] });
+    return NextResponse.json({ segments: [] }, { headers: cacheHeaders });
   }
 }
 

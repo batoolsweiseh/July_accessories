@@ -7,8 +7,7 @@ import Ticker from "@/components/Ticker";
 import Footer from "@/components/Footer";
 import LuckyWheel from "@/components/LuckyWheel";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60; // إعادة التوليد والتخزين المؤقت كل 60 ثانية لحماية السيرفر من الضغط
 
 export default function Home() {
   return (
