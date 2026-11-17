@@ -104,6 +104,23 @@ const WHEEL_COLORS = [
 
 type WheelSegment = { label: string; color: string; probability?: number };
 
+function loadWheelSegments(): WheelSegment[] {
+  try {
+    const s = localStorage.getItem(WHEEL_KEY);
+    return s ? JSON.parse(s) : [];
+  } catch { return []; }
+}
+
+function saveWheelSegments(segs: WheelSegment[]) {
+  try { localStorage.setItem(WHEEL_KEY, JSON.stringify(segs)); } catch { /* ignore */ }
+  fetch("/api/wheel-segments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ segments: segs }),
+  }).catch((err) => console.error("Error syncing wheel segments to server:", err));
+}
+
+/* ─── Wheel Admin Section ─── */
 const DEFAULT_WHEEL_SEGMENTS: WheelSegment[] = [
   { label: "خصم 50%", color: "#e22400", probability: 0.02 },
   { label: "حقيبة من اختيارك", color: "#FFD93D", probability: 0.01 },
@@ -127,27 +144,6 @@ const DEFAULT_WHEEL_SEGMENTS: WheelSegment[] = [
   { label: "ربحت 50نقطة", color: "#74C0FC", probability: 0.01 },
 ];
 
-function loadWheelSegments(): WheelSegment[] {
-  try {
-    const s = localStorage.getItem(WHEEL_KEY);
-    if (s) {
-      const parsed = JSON.parse(s);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch { /* ignore */ }
-  return DEFAULT_WHEEL_SEGMENTS;
-}
-
-function saveWheelSegments(segs: WheelSegment[]) {
-  try { localStorage.setItem(WHEEL_KEY, JSON.stringify(segs)); } catch { /* ignore */ }
-  fetch("/api/wheel-segments", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ segments: segs }),
-  }).catch((err) => console.error("Error syncing wheel segments to server:", err));
-}
-
-/* ─── Wheel Admin Section ─── */
 function WheelAdminSection() {
   const [segments, setSegments] = useState<WheelSegment[]>([]);
   const [newLabel, setNewLabel] = useState("");
@@ -159,49 +155,47 @@ function WheelAdminSection() {
   useEffect(() => {
     setMounted(true);
     setSegments(loadWheelSegments());
-    fetch("/api/wheel-segments")
+    fetch("/api/wheel-segments?t=" + Date.now())
       .then((res) => res.json())
       .then((data) => {
         if (data.segments && Array.isArray(data.segments) && data.segments.length > 0) {
           setSegments(data.segments);
-          try { localStorage.setItem(WHEEL_KEY, JSON.stringify(data.segments)); } catch { }
+          try { localStorage.setItem(WHEEL_KEY, JSON.stringify(data.segments)); } catch {}
         }
       })
       .catch((err) => console.error("Error loading wheel segments:", err));
   }, []);
 
-  const handleSave = () => {
+  const save = () => {
     const label = newLabel.trim();
     if (!label) return;
     const probVal = parseFloat(newProbability);
     if (isNaN(probVal) || probVal < 0 || probVal > 100) return;
 
+    let next: WheelSegment[];
     if (editingIndex !== null && editingIndex >= 0 && editingIndex < segments.length) {
-      // تعديل خيار قائم
-      const next = [...segments];
-      next[editingIndex] = { label, color: newColor, probability: probVal / 100 };
-      setSegments(next);
-      saveWheelSegments(next);
+      next = segments.map((seg, i) =>
+        i === editingIndex ? { label, color: newColor, probability: probVal / 100 } : seg
+      );
       setEditingIndex(null);
     } else {
-      // إضافة خيار جديد
-      const next = [...segments, { label, color: newColor, probability: probVal / 100 }];
-      setSegments(next);
-      saveWheelSegments(next);
+      next = [...segments, { label, color: newColor, probability: probVal / 100 }];
     }
 
+    setSegments(next);
+    saveWheelSegments(next);
     setNewLabel("");
     setNewProbability("10");
-    setNewColor(WHEEL_COLORS[(segments.length + 1) % WHEEL_COLORS.length]);
+    setNewColor(WHEEL_COLORS[(next.length + 1) % WHEEL_COLORS.length]);
   };
 
   const startEdit = (idx: number) => {
-    const target = segments[idx];
-    if (!target) return;
+    const item = segments[idx];
+    if (!item) return;
     setEditingIndex(idx);
-    setNewLabel(target.label);
-    setNewProbability(String(Math.round(((target.probability ?? 0.1) * 100) * 10) / 10));
-    setNewColor(target.color || WHEEL_COLORS[0]);
+    setNewLabel(item.label);
+    setNewProbability(((item.probability ?? 0.1) * 100).toString());
+    setNewColor(item.color || WHEEL_COLORS[0]);
   };
 
   const cancelEdit = () => {
@@ -213,17 +207,17 @@ function WheelAdminSection() {
 
   const remove = (idx: number) => {
     const next = segments.filter((_, i) => i !== idx);
-    setSegments(next);
-    saveWheelSegments(next);
     if (editingIndex === idx) {
       cancelEdit();
     } else if (editingIndex !== null && editingIndex > idx) {
       setEditingIndex(editingIndex - 1);
     }
+    setSegments(next);
+    saveWheelSegments(next);
   };
 
   const restoreDefaults = () => {
-    if (window.confirm("هل تريد استرجاع جميع خيارات الدولاب الافتراضية الـ 20؟")) {
+    if (confirm("هل ترغب في استعادة جوائز وخيارات الدولاب الافتراضية بالكامل؟")) {
       setSegments(DEFAULT_WHEEL_SEGMENTS);
       saveWheelSegments(DEFAULT_WHEEL_SEGMENTS);
       cancelEdit();
@@ -234,7 +228,7 @@ function WheelAdminSection() {
 
   return (
     <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6" dir="rtl">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0 text-xl">
             🎡
@@ -246,40 +240,41 @@ function WheelAdminSection() {
             <p className="text-xs text-slate-500">الخيارات تظهر للزوار في صفحة المتجر</p>
           </div>
         </div>
+
         <button
           type="button"
           onClick={restoreDefaults}
-          className="self-start sm:self-auto px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+          className="text-xs font-medium text-slate-600 hover:text-neutral-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-all"
         >
-          🔄 استرجاع الخيارات الافتراضية
+          🔄 استعادة الجوائز الافتراضية
         </button>
       </div>
 
-      {/* نموذج إضافة / تعديل خيار */}
-      <div className={`p-4 rounded-xl border mb-5 transition-all ${editingIndex !== null ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold text-neutral-700">
-            {editingIndex !== null ? `تعديل الجائزة رقم ${editingIndex + 1}` : "إضافة جائزة جديدة للدولاب"}
-          </span>
-          {editingIndex !== null && (
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline"
-            >
+      {/* إضافة / تعديل خيار */}
+      <div className={`p-4 rounded-xl border mb-4 transition-all ${editingIndex !== null ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50/60 border-slate-200'}`}>
+        {editingIndex !== null && (
+          <div className="flex items-center justify-between text-xs font-semibold text-amber-800 mb-2.5">
+            <span>✏️ وضع التعديل: عدّل الاسم أو النسبة ثم اضغط حفظ</span>
+            <button type="button" onClick={cancelEdit} className="text-slate-400 hover:text-slate-700 underline">
               إلغاء التعديل
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                save();
+              }
+            }}
             placeholder="اسم الجائزة (مثال: خصم 5% أو حلق هدية)"
             maxLength={35}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-500 transition-colors"
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-500 transition-colors shadow-2xs"
           />
           
           <div className="flex items-center gap-2">
@@ -292,20 +287,27 @@ function WheelAdminSection() {
                 step="any"
                 value={newProbability}
                 onChange={(e) => setNewProbability(e.target.value)}
-                placeholder="الاحتمالية"
-                className="w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-500 transition-colors"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    save();
+                  }
+                }}
+                placeholder="النسبة"
+                className="w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-500 transition-colors shadow-2xs"
               />
               <span className="absolute left-3 text-xs text-slate-400 font-bold">%</span>
             </div>
 
             {/* منتقي الألوان */}
-            <div className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 bg-white">
+            <div className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs">
               <span className="text-xs text-slate-400">اللون:</span>
               <input
                 type="color"
                 value={newColor}
                 onChange={(e) => setNewColor(e.target.value)}
                 className="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent"
+                title="اختر لون الشريحة في الدولاب"
               />
             </div>
           </div>
@@ -313,10 +315,10 @@ function WheelAdminSection() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleSave}
+              onClick={save}
               disabled={!newLabel.trim() || !newProbability.trim()}
-              className={`flex-1 sm:flex-none rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all active:scale-95 disabled:opacity-40 shadow-sm ${
-                editingIndex !== null ? 'bg-amber-600 hover:bg-amber-700' : 'bg-neutral-900 hover:bg-neutral-800'
+              className={`rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all active:scale-95 disabled:opacity-40 cursor-pointer ${
+                editingIndex !== null ? 'bg-amber-600 hover:bg-amber-700' : 'bg-neutral-900 hover:bg-neutral-700'
               }`}
             >
               {editingIndex !== null ? "حفظ التعديل" : "+ إضافة"}
@@ -325,7 +327,7 @@ function WheelAdminSection() {
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
               >
                 إلغاء
               </button>
@@ -334,58 +336,56 @@ function WheelAdminSection() {
         </div>
       </div>
 
-      {/* قائمة الخيارات الحالية */}
+      {/* القائمة */}
       {segments.length === 0 ? (
         <div className="text-center py-8 rounded-xl border-2 border-dashed border-slate-200">
           <div className="text-3xl mb-2">🎡</div>
-          <p className="text-sm text-slate-400 mb-3">لا توجد خيارات بعد</p>
+          <p className="text-sm text-slate-500 mb-3">لا توجد خيارات في الدولاب حالياً</p>
           <button
             type="button"
             onClick={restoreDefaults}
-            className="px-4 py-2 text-xs font-bold text-neutral-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+            className="text-xs font-semibold text-[#E0457D] hover:underline"
           >
-            تعبئة بالخيارات الافتراضية
+            اضغط هنا لاستعادة الجوائز الافتراضية
           </button>
         </div>
       ) : (
-        <ul className="space-y-2 max-h-80 overflow-y-auto pr-1">
+        <ul className="space-y-2 max-h-72 overflow-y-auto pr-1">
           {segments.map((seg, i) => (
             <li
-              key={`${seg.label}-${i}`}
-              className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 transition ${
-                editingIndex === i
-                  ? 'border-amber-300 bg-amber-50/80 shadow-xs ring-1 ring-amber-300'
-                  : 'border-slate-200/80 bg-slate-50/60 hover:bg-slate-50'
+              key={`seg-${i}`}
+              className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all ${
+                editingIndex === i ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-200' : 'bg-slate-50 border-slate-100 hover:border-slate-200'
               }`}
             >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <span
-                  className="h-4 w-4 rounded-full flex-shrink-0 border border-white shadow-xs"
-                  style={{ backgroundColor: seg.color }}
-                />
-                <span className="text-sm font-medium text-neutral-900 truncate">
-                  {seg.label}
-                </span>
-                <span className="font-mono text-xs font-semibold text-slate-600 bg-slate-200/70 px-2 py-0.5 rounded-md flex-shrink-0">
+              <span
+                className="h-4 w-4 rounded-full flex-shrink-0 border border-white shadow-xs"
+                style={{ backgroundColor: seg.color }}
+              />
+              <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-neutral-900 truncate">{seg.label}</span>
+                <span className="font-mono text-xs font-semibold text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded-md">
                   {((seg.probability ?? 0) * 100).toFixed(1)}%
                 </span>
               </div>
 
+              {/* أزرار الإجراءات: تعديل وحذف */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => startEdit(i)}
-                  className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition shadow-xs"
+                  className="rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-black transition-colors cursor-pointer"
+                  title="تعديل هذا الخيار"
                 >
-                  تعديل
+                  ✏️ تعديل
                 </button>
                 <button
                   type="button"
                   onClick={() => remove(i)}
-                  className="px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl hover:bg-rose-100 transition shadow-xs"
+                  className="rounded-lg bg-rose-50 border border-rose-100 px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition-colors cursor-pointer"
                   title="حذف هذا الخيار"
                 >
-                  حذف
+                  🗑️ حذف
                 </button>
               </div>
             </li>
@@ -400,10 +400,10 @@ function WheelAdminSection() {
             const totalProbability = segments.reduce((sum, seg) => sum + (seg.probability ?? 0) * 100, 0);
             return (
               <span className={`font-mono font-bold ${Math.abs(totalProbability - 100) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {totalProbability.toFixed(1)}%
+                {totalProbability.toFixed(1)}% 
                 {Math.abs(totalProbability - 100) > 0.01 && (
                   <span className="font-normal text-[10px] text-slate-400 block sm:inline sm:mr-1">
-                    (يُفضل أن يكون المجموع 100%)
+                    (يفضل أن يكون المجموع 100%)
                   </span>
                 )}
               </span>
@@ -469,62 +469,6 @@ function DeleteConfirmDialog({
 /* ─── مكوّن عرض أصناف وملاحظات الطلب ─── */
 function OrderProductsCell({ text }: { text: string }) {
   if (!text) return <span className="text-slate-400 text-xs">لا يوجد أصناف</span>;
-
-  // فحص هل النص عبارة عن فاتورة كاشير / نقطة بيع POS مخزنة بصيغة JSON
-  const trimmed = text.trim();
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-    try {
-      const posData = JSON.parse(trimmed);
-      if (posData && (posData.invoice_number || Array.isArray(posData.items))) {
-        return (
-          <div className="space-y-2 min-w-[240px] max-w-sm py-1" dir="rtl">
-            <div className="flex items-center justify-between gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 rounded-lg px-2.5 py-1 shadow-2xs">
-              <span className="flex items-center gap-1.5">
-                <span>🧾</span>
-                <span>فاتورة كاشير محل</span>
-              </span>
-              <span className="font-mono text-[11px] text-emerald-700 dir-ltr bg-emerald-100/70 px-1.5 py-0.5 rounded">
-                {posData.invoice_number || "POS"}
-              </span>
-            </div>
-
-            {Array.isArray(posData.items) && posData.items.length > 0 && (
-              <div className="space-y-1">
-                {posData.items.map((it: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-neutral-900 shadow-2xs"
-                  >
-                    <div className="flex items-center gap-1.5 truncate">
-                      <span className="text-[#E0457D] font-bold text-sm leading-none">•</span>
-                      <span className="font-semibold truncate">{it.name}</span>
-                      <span className="text-slate-400 font-mono text-[11px]">×{it.quantity || 1}</span>
-                    </div>
-                    <span className="font-bold text-neutral-900 font-mono text-xs flex-shrink-0">
-                      {it.line_total ?? (Number(it.price || 0) * Number(it.quantity || 1))} ₪
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-0.5">
-              <span>طريقة الدفع: <strong className="text-neutral-800">{posData.payment_method === "card" ? "بطاقة / فيزا" : "نقدي (كاش)"}</strong></span>
-              {posData.cashier_name && <span>الكاشير: <strong className="text-neutral-700">{posData.cashier_name}</strong></span>}
-            </div>
-
-            {posData.notes && (
-              <div className="rounded-lg bg-amber-50 border border-amber-200 p-1.5 text-[11px] text-amber-900">
-                📝 {posData.notes}
-              </div>
-            )}
-          </div>
-        );
-      }
-    } catch {
-      // ليس JSON صالحاً، إكمال المعالجة العادية
-    }
-  }
 
   const rawLines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   const items: string[] = [];
@@ -785,7 +729,7 @@ export default function AdminPage() {
       fetchAdminLoyaltyData(),
       fetchAdminCustomersAction(),
     ]);
-
+    
     if (result.success) {
       setCategories(
         result.categories && result.categories.length > 0 ? result.categories : FALLBACK_CATEGORIES
@@ -1033,14 +977,16 @@ export default function AdminPage() {
       {/* Toast */}
       {toast && (
         <div
-          className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3.5 rounded-xl shadow-lg border transition-all duration-300 ${toast.type === "success"
-            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-            : "bg-rose-50 border-rose-200 text-rose-800"
-            }`}
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3.5 rounded-xl shadow-lg border transition-all duration-300 ${
+            toast.type === "success"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : "bg-rose-50 border-rose-200 text-rose-800"
+          }`}
         >
           <i
-            className={`fa-solid ${toast.type === "success" ? "fa-circle-check" : "fa-circle-exclamation"
-              } text-lg`}
+            className={`fa-solid ${
+              toast.type === "success" ? "fa-circle-check" : "fa-circle-exclamation"
+            } text-lg`}
           />
           <span className="text-sm font-semibold">{toast.message}</span>
         </div>
@@ -1126,60 +1072,66 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("products")}
-                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${activeTab === "products"
-                  ? "border-neutral-900 text-neutral-900"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
-                  }`}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
+                  activeTab === "products"
+                    ? "border-neutral-900 text-neutral-900"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
               >
                 📦 إدارة المنتجات ({totalCount})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("orders")}
-                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${activeTab === "orders"
-                  ? "border-neutral-900 text-neutral-900"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
-                  }`}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
+                  activeTab === "orders"
+                    ? "border-neutral-900 text-neutral-900"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
               >
                 🛍️ إدارة الطلبات ({regularOrders.length})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("pos_sales")}
-                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${activeTab === "pos_sales"
-                  ? "border-violet-600 text-violet-700"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
-                  }`}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
+                  activeTab === "pos_sales"
+                    ? "border-violet-600 text-violet-700"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
               >
                 🧾 مبيعات الكاشير ({posOrders.length})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("sections")}
-                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${activeTab === "sections"
-                  ? "border-neutral-900 text-neutral-900"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
-                  }`}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
+                  activeTab === "sections"
+                    ? "border-neutral-900 text-neutral-900"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
               >
                 🗂️ الأقسام والظهور
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("users_points")}
-                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${activeTab === "users_points"
-                  ? "border-neutral-900 text-neutral-900"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
-                  }`}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
+                  activeTab === "users_points"
+                    ? "border-neutral-900 text-neutral-900"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
               >
                 👥 المستخدمون والنقاط ({customers.length})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("loyalty")}
-                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${activeTab === "loyalty"
-                  ? "border-[#E0457D] text-[#E0457D]"
-                  : "border-transparent text-slate-400 hover:text-slate-600"
-                  }`}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
+                  activeTab === "loyalty"
+                    ? "border-[#E0457D] text-[#E0457D]"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
               >
                 🎁 جوائز وأكواد النقاط ({rewards.length})
               </button>
@@ -1197,607 +1149,612 @@ export default function AdminPage() {
                     ref={formRef}
                     className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6 lg:sticky lg:top-6 w-full"
                   >
+                <div className="flex items-center justify-between">
+                  <h2
+                    style={{ fontFamily: "'Lalezar', serif" }}
+                    className="text-2xl text-neutral-900"
+                  >
+                    {editingProduct ? "تعديل المنتج" : "إضافة منتج جديد"}
+                  </h2>
+                  {editingProduct && (
+                    <button
+                      onClick={resetForm}
+                      title="إلغاء التعديل"
+                      className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg p-1.5 transition-all text-sm"
+                    >
+                      <i className="fa-solid fa-xmark" />
+                    </button>
+                  )}
+                </div>
+
+                {editingProduct && (
+                  <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-800 font-semibold">
+                    <i className="fa-solid fa-pen-to-square" />
+                    وضع التعديل — {editingProduct.name}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* Image Upload */}
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <h2
-                        style={{ fontFamily: "'Lalezar', serif" }}
-                        className="text-2xl text-neutral-900"
-                      >
-                        {editingProduct ? "تعديل المنتج" : "إضافة منتج جديد"}
-                      </h2>
-                      {editingProduct && (
+                      <label className="block text-xs font-bold text-slate-700">صورة المنتج</label>
+                      {imagePreviewUrl && (
                         <button
-                          onClick={resetForm}
-                          title="إلغاء التعديل"
-                          className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg p-1.5 transition-all text-sm"
+                          type="button"
+                          onClick={() => {
+                            setCropperSrc(imagePreviewUrl);
+                            setCropperOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#E0457D] hover:underline"
                         >
-                          <i className="fa-solid fa-xmark" />
+                          <span>✂️</span>
+                          <span>تحريك / قص الصورة</span>
+                        </button>
+                      )}
+                    </div>
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-xl cursor-pointer aspect-video flex flex-col items-center justify-center bg-slate-50 overflow-hidden relative group transition-colors"
+                    >
+                      {imagePreviewUrl ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={imagePreviewUrl}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
+                            تغيير الصورة
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center p-4 space-y-2">
+                          <i className="fa-regular fa-image text-3xl text-slate-400 group-hover:text-slate-600 transition-colors" />
+                          <p className="text-xs text-slate-500">اضغط لرفع صورة المنتج</p>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                  </div>
+
+                  {/* Name */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      اسم المنتج <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      placeholder="مثال: أسوارة الفراشة الفضية"
+                      className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white"
+                    />
+                  </div>
+
+                  {/* Price */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      السعر (شيكل ₪) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      required
+                      placeholder="مثال: 45"
+                      min="1"
+                      step="any"
+                      className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white"
+                    />
+                  </div>
+
+                  {/* Category */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      القسم الرئيسي <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={categorySlug}
+                      onChange={(e) => {
+                        setCategorySlug(e.target.value);
+                        setSubcategoryId("");
+                      }}
+                      required
+                      className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white"
+                    >
+                      <option value="">اختر القسم الرئيسي</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.slug}>
+                          {cat.title_ar}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Subcategory */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-700">القسم الفرعي</label>
+                    <select
+                      value={subcategoryId}
+                      onChange={(e) => setSubcategoryId(e.target.value)}
+                      disabled={!categorySlug}
+                      className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white disabled:bg-slate-50 disabled:text-slate-400"
+                    >
+                      <option value="">اختر القسم الفرعي (اختياري)</option>
+                      {filteredSubcategories.map((sub) => {
+                        const isHidden =
+                          subcategoriesSettings.hidden_ids.includes(sub.id) ||
+                          subcategoriesSettings.hidden_ids.includes(sub.title_ar);
+                        return (
+                          <option key={sub.id} value={sub.id}>
+                            {sub.title_ar} {isHidden ? "(مخفي من المتجر)" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-700">الوصف</label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="تفاصيل حول مادة الصنع، القياس، مميزات المنتج..."
+                      rows={3}
+                      className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white resize-none"
+                    />
+                  </div>
+
+                  {/* Checkboxes */}
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    {[
+                      { label: "منتج مميز", value: isFeatured, setter: setIsFeatured },
+                      { label: "متوفر بالمخزون", value: inStock, setter: setInStock },
+                      { label: "منتج جديد", value: isNew, setter: setIsNew },
+                      { label: "منتج ترند", value: isTrending, setter: setIsTrending },
+                      { label: "خيارات ألوان (ذهبي / فضي)", value: hasColors, setter: setHasColors },
+                    ].map(({ label, value, setter }) => (
+                      <label key={label} className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={(e) => setter(e.target.checked)}
+                          className="rounded text-neutral-900 focus:ring-neutral-900 border-slate-300 w-4 h-4"
+                        />
+                        <span className="text-xs font-semibold text-slate-700">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* ── قطع وأصناف الطقم (اختياري للأطقم والمجموعات) ── */}
+                  <div className="space-y-3 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-800">
+                          ✨ قطع وأصناف الطقم (اختياري)
+                        </label>
+                        <p className="text-[11px] text-slate-500">
+                          أضف أسعار القطع المنفردة داخل هذا الطقم
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPieces((prev) => [...prev, { name: "", price: (price || "") as any, hasColors: false }])}
+                        className="text-xs font-bold text-[#E0457D] hover:bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 transition"
+                      >
+                        + إضافة قطعة
+                      </button>
+                    </div>
+
+                    {pieces.length > 0 && (
+                      <div className="space-y-2 max-h-48 overflow-y-auto p-1">
+                        {pieces.map((piece, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-2 rounded-xl"
+                          >
+                            <input
+                              type="text"
+                              value={piece.name}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setPieces((prev) =>
+                                  prev.map((p, i) => (i === index ? { ...p, name: val } : p))
+                                );
+                              }}
+                              placeholder="اسم القطعة (مثال: اسوارة كارتير)"
+                              className="flex-1 text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-black"
+                            />
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={piece.price ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setPieces((prev) =>
+                                    prev.map((p, i) => (i === index ? { ...p, price: val } : p))
+                                  );
+                                }}
+                                placeholder="السعر"
+                                className="w-20 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white font-mono focus:outline-none focus:border-black text-center"
+                              />
+                              <span className="text-[10px] text-slate-500 font-bold">₪</span>
+                            </div>
+                            <label className="flex items-center gap-1.5 cursor-pointer select-none bg-white px-2 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300">
+                              <input
+                                type="checkbox"
+                                checked={!!piece.hasColors}
+                                onChange={(e) => {
+                                  const val = e.target.checked;
+                                  setPieces((prev) =>
+                                    prev.map((p, i) => (i === index ? { ...p, hasColors: val } : p))
+                                  );
+                                }}
+                                className="rounded text-neutral-900 focus:ring-neutral-900 border-slate-300 w-3.5 h-3.5"
+                              />
+                              <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
+                                خيارات ألوان (ذهبي / فضي)
+                              </span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setPieces((prev) => prev.filter((_, i) => i !== index))}
+                              className="text-rose-500 hover:text-rose-700 hover:bg-rose-100 p-1.5 rounded-lg text-xs"
+                              title="حذف القطعة"
+                            >
+                              <i className="fa-solid fa-trash-can" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submit */}
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full py-3 px-5 bg-black hover:bg-neutral-800 text-white font-semibold rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2 disabled:bg-neutral-400 active:scale-95"
+                  >
+                    {submitting ? (
+                      <>
+                        <i className="fa-solid fa-spinner animate-spin" />
+                        جاري الحفظ...
+                      </>
+                    ) : editingProduct ? (
+                      <>
+                        <i className="fa-solid fa-floppy-disk" />
+                        تحديث المنتج
+                      </>
+                    ) : (
+                      <>
+                        <i className="fa-solid fa-plus" />
+                        أضف المنتج
+                      </>
+                    )}
+                  </button>
+                </form>
+              </section>
+
+              {/* ── Products Table ── */}
+              <section className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col w-full min-w-0">
+                {/* Table Header */}
+                <div className="p-5 border-b border-slate-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2
+                      style={{ fontFamily: "'Lalezar', serif" }}
+                      className="text-2xl text-neutral-900"
+                    >
+                      قائمة المنتجات ({filteredProducts.length})
+                    </h2>
+                    <button
+                      onClick={loadData}
+                      className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"
+                      title="تحديث البيانات"
+                    >
+                      <i className={`fa-solid fa-arrows-rotate ${loading ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
+
+                  {/* Search + Filter */}
+                  <div className="flex flex-col sm:flex-row gap-3 w-full min-w-0">
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-0">
+                      <i className="fa-solid fa-magnifying-glass absolute top-1/2 -translate-y-1/2 right-3.5 text-slate-400 text-sm pointer-events-none" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="ابحثي باسم المنتج..."
+                        className="w-full pr-10 pl-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery("")}
+                          className="absolute top-1/2 -translate-y-1/2 left-3 text-slate-400 hover:text-slate-700"
+                        >
+                          <i className="fa-solid fa-xmark text-xs" />
                         </button>
                       )}
                     </div>
 
-                    {editingProduct && (
-                      <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-800 font-semibold">
-                        <i className="fa-solid fa-pen-to-square" />
-                        وضع التعديل — {editingProduct.name}
-                      </div>
+                    {/* Category filter */}
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className="w-full sm:w-auto text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white min-w-0 sm:min-w-[160px]"
+                    >
+                      <option value="">كل الأقسام</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.slug}>
+                          {cat.title_ar}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Table Body */}
+                {filteredProducts.length === 0 ? (
+                  <div className="text-center py-20 text-slate-400 space-y-2 flex-1 flex flex-col items-center justify-center">
+                    <i className="fa-solid fa-box-open text-4xl" />
+                    <p className="text-sm">
+                      {searchQuery || filterCategory
+                        ? "لا توجد نتائج مطابقة للبحث."
+                        : "لا توجد منتجات مضافة حالياً."}
+                    </p>
+                    {(searchQuery || filterCategory) && (
+                      <button
+                        onClick={() => { setSearchQuery(""); setFilterCategory(""); }}
+                        className="mt-2 text-xs text-neutral-900 underline underline-offset-2"
+                      >
+                        إزالة الفلتر
+                      </button>
                     )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto min-w-0">
+                      <table className="w-full text-right border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500">
+                            <th className="py-4 px-6">المنتج</th>
+                            <th className="py-4 px-4">السعر</th>
+                            <th className="py-4 px-4">القسم والفرع</th>
+                            <th className="py-4 px-4 text-center">التوفر</th>
+                            <th className="py-4 px-6 text-center">خيارات</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-sm">
+                          {paginatedProducts.map((product) => {
+                            const isLoading = actionId === product.id;
+                            const isBeingEdited = editingProduct?.id === product.id;
+                            const categoryName =
+                              categories.find((c) => c.slug === product.category_slug)?.title_ar ||
+                              product.category_slug;
+                            const subcategoryName = product.subcategories?.title_ar || "—";
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                      {/* Image Upload */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <label className="block text-xs font-bold text-slate-700">صورة المنتج</label>
-                          {imagePreviewUrl && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCropperSrc(imagePreviewUrl);
-                                setCropperOpen(true);
-                              }}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-[#E0457D] hover:underline"
-                            >
-                              <span>✂️</span>
-                              <span>تحريك / قص الصورة</span>
-                            </button>
-                          )}
-                        </div>
-                        <div
-                          onClick={() => fileInputRef.current?.click()}
-                          className="border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-xl cursor-pointer aspect-video flex flex-col items-center justify-center bg-slate-50 overflow-hidden relative group transition-colors"
-                        >
-                          {imagePreviewUrl ? (
-                            <>
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={imagePreviewUrl}
-                                alt="Preview"
-                                className="w-full h-full object-cover"
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
-                                تغيير الصورة
-                              </div>
-                            </>
-                          ) : (
-                            <div className="text-center p-4 space-y-2">
-                              <i className="fa-regular fa-image text-3xl text-slate-400 group-hover:text-slate-600 transition-colors" />
-                              <p className="text-xs text-slate-500">اضغط لرفع صورة المنتج</p>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          className="hidden"
-                        />
-                      </div>
-
-                      {/* Name */}
-                      <div className="space-y-1">
-                        <label className="block text-xs font-bold text-slate-700">
-                          اسم المنتج <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          required
-                          placeholder="مثال: أسوارة الفراشة الفضية"
-                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white"
-                        />
-                      </div>
-
-                      {/* Price */}
-                      <div className="space-y-1">
-                        <label className="block text-xs font-bold text-slate-700">
-                          السعر (شيكل ₪) <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          value={price}
-                          onChange={(e) => setPrice(e.target.value)}
-                          required
-                          placeholder="مثال: 45"
-                          min="1"
-                          step="any"
-                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white"
-                        />
-                      </div>
-
-                      {/* Category */}
-                      <div className="space-y-1">
-                        <label className="block text-xs font-bold text-slate-700">
-                          القسم الرئيسي <span className="text-rose-500">*</span>
-                        </label>
-                        <select
-                          value={categorySlug}
-                          onChange={(e) => {
-                            setCategorySlug(e.target.value);
-                            setSubcategoryId("");
-                          }}
-                          required
-                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white"
-                        >
-                          <option value="">اختر القسم الرئيسي</option>
-                          {categories.map((cat) => (
-                            <option key={cat.id} value={cat.slug}>
-                              {cat.title_ar}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Subcategory */}
-                      <div className="space-y-1">
-                        <label className="block text-xs font-bold text-slate-700">القسم الفرعي</label>
-                        <select
-                          value={subcategoryId}
-                          onChange={(e) => setSubcategoryId(e.target.value)}
-                          disabled={!categorySlug}
-                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white disabled:bg-slate-50 disabled:text-slate-400"
-                        >
-                          <option value="">اختر القسم الفرعي (اختياري)</option>
-                          {filteredSubcategories.map((sub) => {
-                            const isHidden =
-                              subcategoriesSettings.hidden_ids.includes(sub.id) ||
-                              subcategoriesSettings.hidden_ids.includes(sub.title_ar);
                             return (
-                              <option key={sub.id} value={sub.id}>
-                                {sub.title_ar} {isHidden ? "(مخفي من المتجر)" : ""}
-                              </option>
+                              <tr
+                                key={product.id}
+                                className={`transition-colors ${
+                                  isBeingEdited
+                                    ? "bg-amber-50/60 border-r-2 border-r-amber-400"
+                                    : "hover:bg-slate-50/50"
+                                }`}
+                              >
+                                {/* Image + Name */}
+                                <td className="py-4 px-6 flex items-center gap-3">
+                                  <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden border border-slate-200/60 flex-shrink-0 flex items-center justify-center">
+                                    {product.image_url ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={product.image_url}
+                                        alt={product.name}
+                                        className="w-full h-full object-cover"
+                                        loading="lazy"
+                                      />
+                                    ) : (
+                                      <i className="fa-regular fa-image text-slate-300" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h4
+                                      className="font-semibold text-neutral-900 truncate max-w-[180px]"
+                                      title={product.name}
+                                    >
+                                      {product.name}
+                                    </h4>
+                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                      {product.is_featured && (
+                                        <span className="px-1.5 py-0.5 bg-neutral-900 text-white text-[9px] font-extrabold rounded">
+                                          مميز
+                                        </span>
+                                      )}
+                                      {product.description?.includes("[tag:new]") && (
+                                        <span className="px-1.5 py-0.5 bg-emerald-600 text-white text-[9px] font-extrabold rounded">
+                                          جديد
+                                        </span>
+                                      )}
+                                      {product.description?.includes("[tag:trending]") && (
+                                        <span className="px-1.5 py-0.5 bg-rose-600 text-white text-[9px] font-extrabold rounded">
+                                          ترند
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+
+                                {/* Price */}
+                                <td className="py-4 px-4 font-mono font-medium text-neutral-900">
+                                  {product.price} ₪
+                                </td>
+
+                                {/* Category */}
+                                <td className="py-4 px-4 text-xs text-slate-500">
+                                  <div className="font-semibold text-neutral-900">{categoryName}</div>
+                                  <div className="text-[10px] mt-0.5">{subcategoryName}</div>
+                                </td>
+
+                                {/* Stock toggle */}
+                                <td className="py-4 px-4 text-center">
+                                  <button
+                                    disabled={isLoading}
+                                    onClick={() => handleToggleStock(product.id, product.in_stock)}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all border ${
+                                      product.in_stock
+                                        ? "bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100"
+                                        : "bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100"
+                                    } disabled:opacity-50`}
+                                    title="اضغط لتغيير حالة التوفر"
+                                  >
+                                    <span
+                                      className={`w-1.5 h-1.5 rounded-full ${
+                                        product.in_stock ? "bg-emerald-500" : "bg-rose-500"
+                                      }`}
+                                    />
+                                    {product.in_stock ? "متوفر" : "نفد"}
+                                  </button>
+                                </td>
+
+                                {/* Actions */}
+                                <td className="py-4 px-6 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    {/* Edit */}
+                                    <button
+                                      disabled={isLoading}
+                                      onClick={() => handleStartEdit(product)}
+                                      className={`p-2 rounded-xl transition-all disabled:opacity-50 ${
+                                        isBeingEdited
+                                          ? "bg-amber-100 text-amber-700"
+                                          : "text-slate-500 hover:text-neutral-900 hover:bg-slate-100"
+                                      }`}
+                                      title="تعديل المنتج"
+                                    >
+                                      <i className="fa-regular fa-pen-to-square text-sm" />
+                                    </button>
+
+                                    {/* Delete */}
+                                    <button
+                                      disabled={isLoading}
+                                      onClick={() => setDeleteTarget(product)}
+                                      className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-50"
+                                      title="حذف المنتج"
+                                    >
+                                      {isLoading ? (
+                                        <i className="fa-solid fa-spinner animate-spin text-sm" />
+                                      ) : (
+                                        <i className="fa-regular fa-trash-can text-sm" />
+                                      )}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
                             );
                           })}
-                        </select>
-                      </div>
-
-                      {/* Description */}
-                      <div className="space-y-1">
-                        <label className="block text-xs font-bold text-slate-700">الوصف</label>
-                        <textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="تفاصيل حول مادة الصنع، القياس، مميزات المنتج..."
-                          rows={3}
-                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white resize-none"
-                        />
-                      </div>
-
-                      {/* Checkboxes */}
-                      <div className="grid grid-cols-2 gap-4 pt-2">
-                        {[
-                          { label: "منتج مميز", value: isFeatured, setter: setIsFeatured },
-                          { label: "متوفر بالمخزون", value: inStock, setter: setInStock },
-                          { label: "منتج جديد", value: isNew, setter: setIsNew },
-                          { label: "منتج ترند", value: isTrending, setter: setIsTrending },
-                          { label: "خيارات ألوان (ذهبي / فضي)", value: hasColors, setter: setHasColors },
-                        ].map(({ label, value, setter }) => (
-                          <label key={label} className="flex items-center gap-2 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={value}
-                              onChange={(e) => setter(e.target.checked)}
-                              className="rounded text-neutral-900 focus:ring-neutral-900 border-slate-300 w-4 h-4"
-                            />
-                            <span className="text-xs font-semibold text-slate-700">{label}</span>
-                          </label>
-                        ))}
-                      </div>
-
-                      {/* ── قطع وأصناف الطقم (اختياري للأطقم والمجموعات) ── */}
-                      <div className="space-y-3 pt-2 border-t border-slate-100">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-800">
-                              ✨ قطع وأصناف الطقم (اختياري)
-                            </label>
-                            <p className="text-[11px] text-slate-500">
-                              أضف أسعار القطع المنفردة داخل هذا الطقم
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setPieces((prev) => [...prev, { name: "", price: (price || "") as any, hasColors: false }])}
-                            className="text-xs font-bold text-[#E0457D] hover:bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 transition"
-                          >
-                            + إضافة قطعة
-                          </button>
-                        </div>
-
-                        {pieces.length > 0 && (
-                          <div className="space-y-2 max-h-48 overflow-y-auto p-1">
-                            {pieces.map((piece, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-2 rounded-xl"
-                              >
-                                <input
-                                  type="text"
-                                  value={piece.name}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setPieces((prev) =>
-                                      prev.map((p, i) => (i === index ? { ...p, name: val } : p))
-                                    );
-                                  }}
-                                  placeholder="اسم القطعة (مثال: اسوارة كارتير)"
-                                  className="flex-1 text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-black"
-                                />
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={piece.price ?? ""}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setPieces((prev) =>
-                                        prev.map((p, i) => (i === index ? { ...p, price: val } : p))
-                                      );
-                                    }}
-                                    placeholder="السعر"
-                                    className="w-20 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white font-mono focus:outline-none focus:border-black text-center"
-                                  />
-                                  <span className="text-[10px] text-slate-500 font-bold">₪</span>
-                                </div>
-                                <label className="flex items-center gap-1.5 cursor-pointer select-none bg-white px-2 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300">
-                                  <input
-                                    type="checkbox"
-                                    checked={!!piece.hasColors}
-                                    onChange={(e) => {
-                                      const val = e.target.checked;
-                                      setPieces((prev) =>
-                                        prev.map((p, i) => (i === index ? { ...p, hasColors: val } : p))
-                                      );
-                                    }}
-                                    className="rounded text-neutral-900 focus:ring-neutral-900 border-slate-300 w-3.5 h-3.5"
-                                  />
-                                  <span className="text-[11px] font-semibold text-slate-700 whitespace-nowrap">
-                                    خيارات ألوان (ذهبي / فضي)
-                                  </span>
-                                </label>
-                                <button
-                                  type="button"
-                                  onClick={() => setPieces((prev) => prev.filter((_, i) => i !== index))}
-                                  className="text-rose-500 hover:text-rose-700 hover:bg-rose-100 p-1.5 rounded-lg text-xs"
-                                  title="حذف القطعة"
-                                >
-                                  <i className="fa-solid fa-trash-can" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Submit */}
-                      <button
-                        type="submit"
-                        disabled={submitting}
-                        className="w-full py-3 px-5 bg-black hover:bg-neutral-800 text-white font-semibold rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2 disabled:bg-neutral-400 active:scale-95"
-                      >
-                        {submitting ? (
-                          <>
-                            <i className="fa-solid fa-spinner animate-spin" />
-                            جاري الحفظ...
-                          </>
-                        ) : editingProduct ? (
-                          <>
-                            <i className="fa-solid fa-floppy-disk" />
-                            تحديث المنتج
-                          </>
-                        ) : (
-                          <>
-                            <i className="fa-solid fa-plus" />
-                            أضف المنتج
-                          </>
-                        )}
-                      </button>
-                    </form>
-                  </section>
-
-                  {/* ── Products Table ── */}
-                  <section className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col w-full min-w-0">
-                    {/* Table Header */}
-                    <div className="p-5 border-b border-slate-100 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h2
-                          style={{ fontFamily: "'Lalezar', serif" }}
-                          className="text-2xl text-neutral-900"
-                        >
-                          قائمة المنتجات ({filteredProducts.length})
-                        </h2>
-                        <button
-                          onClick={loadData}
-                          className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"
-                          title="تحديث البيانات"
-                        >
-                          <i className={`fa-solid fa-arrows-rotate ${loading ? "animate-spin" : ""}`} />
-                        </button>
-                      </div>
-
-                      {/* Search + Filter */}
-                      <div className="flex flex-col sm:flex-row gap-3 w-full min-w-0">
-                        {/* Search */}
-                        <div className="relative flex-1 min-w-0">
-                          <i className="fa-solid fa-magnifying-glass absolute top-1/2 -translate-y-1/2 right-3.5 text-slate-400 text-sm pointer-events-none" />
-                          <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="ابحثي باسم المنتج..."
-                            className="w-full pr-10 pl-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white"
-                          />
-                          {searchQuery && (
-                            <button
-                              onClick={() => setSearchQuery("")}
-                              className="absolute top-1/2 -translate-y-1/2 left-3 text-slate-400 hover:text-slate-700"
-                            >
-                              <i className="fa-solid fa-xmark text-xs" />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Category filter */}
-                        <select
-                          value={filterCategory}
-                          onChange={(e) => setFilterCategory(e.target.value)}
-                          className="w-full sm:w-auto text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 transition-all bg-white min-w-0 sm:min-w-[160px]"
-                        >
-                          <option value="">كل الأقسام</option>
-                          {categories.map((cat) => (
-                            <option key={cat.id} value={cat.slug}>
-                              {cat.title_ar}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                        </tbody>
+                      </table>
                     </div>
 
-                    {/* Table Body */}
-                    {filteredProducts.length === 0 ? (
-                      <div className="text-center py-20 text-slate-400 space-y-2 flex-1 flex flex-col items-center justify-center">
-                        <i className="fa-solid fa-box-open text-4xl" />
-                        <p className="text-sm">
-                          {searchQuery || filterCategory
-                            ? "لا توجد نتائج مطابقة للبحث."
-                            : "لا توجد منتجات مضافة حالياً."}
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                        <p className="text-xs text-slate-500">
+                          عرض {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredProducts.length)} من {filteredProducts.length} منتج
                         </p>
-                        {(searchQuery || filterCategory) && (
+                        <div className="flex items-center gap-1.5">
+                          {/* Prev */}
                           <button
-                            onClick={() => { setSearchQuery(""); setFilterCategory(""); }}
-                            className="mt-2 text-xs text-neutral-900 underline underline-offset-2"
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={safePage === 1}
+                            className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
                           >
-                            إزالة الفلتر
+                            <i className="fa-solid fa-chevron-right" />
                           </button>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <div className="overflow-x-auto min-w-0">
-                          <table className="w-full text-right border-collapse">
-                            <thead>
-                              <tr className="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500">
-                                <th className="py-4 px-6">المنتج</th>
-                                <th className="py-4 px-4">السعر</th>
-                                <th className="py-4 px-4">القسم والفرع</th>
-                                <th className="py-4 px-4 text-center">التوفر</th>
-                                <th className="py-4 px-6 text-center">خيارات</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-sm">
-                              {paginatedProducts.map((product) => {
-                                const isLoading = actionId === product.id;
-                                const isBeingEdited = editingProduct?.id === product.id;
-                                const categoryName =
-                                  categories.find((c) => c.slug === product.category_slug)?.title_ar ||
-                                  product.category_slug;
-                                const subcategoryName = product.subcategories?.title_ar || "—";
 
-                                return (
-                                  <tr
-                                    key={product.id}
-                                    className={`transition-colors ${isBeingEdited
-                                      ? "bg-amber-50/60 border-r-2 border-r-amber-400"
-                                      : "hover:bg-slate-50/50"
-                                      }`}
-                                  >
-                                    {/* Image + Name */}
-                                    <td className="py-4 px-6 flex items-center gap-3">
-                                      <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden border border-slate-200/60 flex-shrink-0 flex items-center justify-center">
-                                        {product.image_url ? (
-                                          // eslint-disable-next-line @next/next/no-img-element
-                                          <img
-                                            src={product.image_url}
-                                            alt={product.name}
-                                            className="w-full h-full object-cover"
-                                            loading="lazy"
-                                          />
-                                        ) : (
-                                          <i className="fa-regular fa-image text-slate-300" />
-                                        )}
-                                      </div>
-                                      <div className="min-w-0">
-                                        <h4
-                                          className="font-semibold text-neutral-900 truncate max-w-[180px]"
-                                          title={product.name}
-                                        >
-                                          {product.name}
-                                        </h4>
-                                        <div className="flex flex-wrap gap-1 mt-0.5">
-                                          {product.is_featured && (
-                                            <span className="px-1.5 py-0.5 bg-neutral-900 text-white text-[9px] font-extrabold rounded">
-                                              مميز
-                                            </span>
-                                          )}
-                                          {product.description?.includes("[tag:new]") && (
-                                            <span className="px-1.5 py-0.5 bg-emerald-600 text-white text-[9px] font-extrabold rounded">
-                                              جديد
-                                            </span>
-                                          )}
-                                          {product.description?.includes("[tag:trending]") && (
-                                            <span className="px-1.5 py-0.5 bg-rose-600 text-white text-[9px] font-extrabold rounded">
-                                              ترند
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </td>
+                          {/* Page Numbers */}
+                          {getPaginationItems(safePage, totalPages).map((item, idx) => {
+                            if (typeof item === "string") {
+                              return (
+                                <span
+                                  key={`ellipsis-${idx}`}
+                                  className="w-6 text-center text-xs font-bold text-slate-400 select-none"
+                                >
+                                  ...
+                                </span>
+                              );
+                            }
+                            return (
+                              <button
+                                key={item}
+                                onClick={() => setCurrentPage(item)}
+                                className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all border ${
+                                  item === safePage
+                                    ? "bg-neutral-900 text-white border-neutral-900"
+                                    : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"
+                                }`}
+                              >
+                                {item}
+                              </button>
+                            );
+                          })}
 
-                                    {/* Price */}
-                                    <td className="py-4 px-4 font-mono font-medium text-neutral-900">
-                                      {product.price} ₪
-                                    </td>
-
-                                    {/* Category */}
-                                    <td className="py-4 px-4 text-xs text-slate-500">
-                                      <div className="font-semibold text-neutral-900">{categoryName}</div>
-                                      <div className="text-[10px] mt-0.5">{subcategoryName}</div>
-                                    </td>
-
-                                    {/* Stock toggle */}
-                                    <td className="py-4 px-4 text-center">
-                                      <button
-                                        disabled={isLoading}
-                                        onClick={() => handleToggleStock(product.id, product.in_stock)}
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-all border ${product.in_stock
-                                          ? "bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100"
-                                          : "bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100"
-                                          } disabled:opacity-50`}
-                                        title="اضغط لتغيير حالة التوفر"
-                                      >
-                                        <span
-                                          className={`w-1.5 h-1.5 rounded-full ${product.in_stock ? "bg-emerald-500" : "bg-rose-500"
-                                            }`}
-                                        />
-                                        {product.in_stock ? "متوفر" : "نفد"}
-                                      </button>
-                                    </td>
-
-                                    {/* Actions */}
-                                    <td className="py-4 px-6 text-center">
-                                      <div className="flex items-center justify-center gap-2">
-                                        {/* Edit */}
-                                        <button
-                                          disabled={isLoading}
-                                          onClick={() => handleStartEdit(product)}
-                                          className={`p-2 rounded-xl transition-all disabled:opacity-50 ${isBeingEdited
-                                            ? "bg-amber-100 text-amber-700"
-                                            : "text-slate-500 hover:text-neutral-900 hover:bg-slate-100"
-                                            }`}
-                                          title="تعديل المنتج"
-                                        >
-                                          <i className="fa-regular fa-pen-to-square text-sm" />
-                                        </button>
-
-                                        {/* Delete */}
-                                        <button
-                                          disabled={isLoading}
-                                          onClick={() => setDeleteTarget(product)}
-                                          className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-50"
-                                          title="حذف المنتج"
-                                        >
-                                          {isLoading ? (
-                                            <i className="fa-solid fa-spinner animate-spin text-sm" />
-                                          ) : (
-                                            <i className="fa-regular fa-trash-can text-sm" />
-                                          )}
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
+                          {/* Next */}
+                          <button
+                            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                            disabled={safePage === totalPages}
+                            className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
+                          >
+                            <i className="fa-solid fa-chevron-left" />
+                          </button>
                         </div>
-
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-                            <p className="text-xs text-slate-500">
-                              عرض {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredProducts.length)} من {filteredProducts.length} منتج
-                            </p>
-                            <div className="flex items-center gap-1.5">
-                              {/* Prev */}
-                              <button
-                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                disabled={safePage === 1}
-                                className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
-                              >
-                                <i className="fa-solid fa-chevron-right" />
-                              </button>
-
-                              {/* Page Numbers */}
-                              {getPaginationItems(safePage, totalPages).map((item, idx) => {
-                                if (typeof item === "string") {
-                                  return (
-                                    <span
-                                      key={`ellipsis-${idx}`}
-                                      className="w-6 text-center text-xs font-bold text-slate-400 select-none"
-                                    >
-                                      ...
-                                    </span>
-                                  );
-                                }
-                                return (
-                                  <button
-                                    key={item}
-                                    onClick={() => setCurrentPage(item)}
-                                    className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all border ${item === safePage
-                                      ? "bg-neutral-900 text-white border-neutral-900"
-                                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"
-                                      }`}
-                                  >
-                                    {item}
-                                  </button>
-                                );
-                              })}
-
-                              {/* Next */}
-                              <button
-                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                disabled={safePage === totalPages}
-                                className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
-                              >
-                                <i className="fa-solid fa-chevron-left" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </>
+                      </div>
                     )}
-                  </section>
-                </div>
-              </>
-            ) : activeTab === "orders" ? (
-              <OrdersAdminSection orders={regularOrders} onUpdateStatus={handleUpdateStatus} />
-            ) : activeTab === "pos_sales" ? (
-              <PosSalesAdminSection orders={orders} />
-            ) : activeTab === "sections" ? (
-              <SectionsAdminSection
-                categories={categories}
-                subcategories={subcategories}
-                products={products}
-                initialSettings={subcategoriesSettings}
-                onToast={(msg, type) => showToast(msg, type)}
-                onRefresh={loadData}
-              />
-            ) : activeTab === "users_points" ? (
-              <CustomersAdminSection
-                customers={customers}
-                onRefresh={loadData}
-                onToast={(msg, type) => showToast(msg, type)}
-              />
-            ) : (
-              <LoyaltyAdminSection
-                rewards={rewards}
-                codes={codes}
-                onRefresh={loadData}
-                onToast={(msg, type) => showToast(msg, type)}
-              />
-            )}
+                  </>
+                )}
+              </section>
+            </div>
           </>
+        ) : activeTab === "orders" ? (
+          <OrdersAdminSection orders={regularOrders} onUpdateStatus={handleUpdateStatus} />
+        ) : activeTab === "pos_sales" ? (
+          <PosSalesAdminSection orders={orders} />
+        ) : activeTab === "sections" ? (
+          <SectionsAdminSection
+            categories={categories}
+            subcategories={subcategories}
+            products={products}
+            initialSettings={subcategoriesSettings}
+            onToast={(msg, type) => showToast(msg, type)}
+            onRefresh={loadData}
+          />
+        ) : activeTab === "users_points" ? (
+          <CustomersAdminSection
+            customers={customers}
+            onRefresh={loadData}
+            onToast={(msg, type) => showToast(msg, type)}
+          />
+        ) : (
+          <LoyaltyAdminSection
+            rewards={rewards}
+            codes={codes}
+            onRefresh={loadData}
+            onToast={(msg, type) => showToast(msg, type)}
+          />
         )}
+      </>
+    )}
       </div>
 
       {/* مودال ضبط وتوسيط الصورة */}
