@@ -29,7 +29,7 @@ function loadSegments(): Segment[] {
       const parsed = JSON.parse(s);
       if (Array.isArray(parsed)) return parsed;
     }
-  } catch {}
+  } catch { }
   return [];
 }
 
@@ -87,11 +87,11 @@ function drawWheel(canvas: HTMLCanvasElement, segments: Segment[], rotation: num
     ctx.textBaseline = "middle";
     const textColor = seg.textColor || getContrastColor(seg.color);
     ctx.fillStyle = textColor;
-    
+
     // حجم خط متوازن ومناسب لعدد الخيارات
     const fontSize = Math.max(13, Math.min(18, Math.floor(380 / segments.length)));
     ctx.font = `bold ${fontSize}px 'IBM Plex Sans Arabic', 'Lalezar', sans-serif`;
-    
+
     if (textColor === "#ffffff") {
       ctx.shadowColor = "rgba(0,0,0,0.4)";
       ctx.shadowBlur = 4;
@@ -149,7 +149,7 @@ export default function LuckyWheel() {
             setSegments(data.segments);
             try {
               localStorage.setItem(STORAGE_KEY, JSON.stringify(data.segments));
-            } catch {}
+            } catch { }
           }
         })
         .catch((err) => console.error("Error loading wheel segments from server:", err));
@@ -199,7 +199,7 @@ export default function LuckyWheel() {
         try {
           localStorage.removeItem(COOLDOWN_KEY);
           localStorage.removeItem(PRIZE_KEY);
-        } catch {}
+        } catch { }
       }
     };
 
@@ -275,7 +275,7 @@ export default function LuckyWheel() {
         setLastPrize(prizeName);
         try {
           localStorage.setItem(PRIZE_KEY, prizeName);
-        } catch {}
+        } catch { }
         setShowResult(true);
         setSpinning(false);
       }
@@ -356,11 +356,10 @@ export default function LuckyWheel() {
               type="button"
               onClick={spin}
               disabled={spinning || segments.length < 2 || isCooldownActive}
-              className={`rounded-2xl px-10 py-4 text-base font-bold tracking-wide shadow-xl transition-all duration-200 ${
-                isCooldownActive
+              className={`rounded-2xl px-10 py-4 text-base font-bold tracking-wide shadow-xl transition-all duration-200 ${isCooldownActive
                   ? "bg-black text-white cursor-default border border-white/10 shadow-lg"
                   : "bg-black text-white hover:bg-neutral-800 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-              }`}
+                }`}
             >
               {spinning ? (
                 <span className="flex items-center gap-2">

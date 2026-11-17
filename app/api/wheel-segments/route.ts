@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     try {
       revalidatePath("/");
       revalidatePath("/api/wheel-segments");
-    } catch {}
+    } catch { }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
