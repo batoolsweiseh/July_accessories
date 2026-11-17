@@ -111,13 +111,20 @@ function loadWheelSegments(): WheelSegment[] {
   } catch { return []; }
 }
 
-function saveWheelSegments(segs: WheelSegment[]) {
+async function saveWheelSegments(segs: WheelSegment[]) {
   try { localStorage.setItem(WHEEL_KEY, JSON.stringify(segs)); } catch { /* ignore */ }
-  fetch("/api/wheel-segments", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ segments: segs }),
-  }).catch((err) => console.error("Error syncing wheel segments to server:", err));
+  try {
+    const res = await fetch("/api/wheel-segments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ segments: segs }),
+    });
+    if (res.ok) {
+      window.dispatchEvent(new Event("july-wheel-updated"));
+    }
+  } catch (err) {
+    console.error("Error syncing wheel segments to server:", err);
+  }
 }
 
 /* ─── Wheel Admin Section ─── */
@@ -152,19 +159,28 @@ function WheelAdminSection() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
 
+  const [savingStatus, setSavingStatus] = useState<string | null>(null);
+
   useEffect(() => {
     setMounted(true);
     setSegments(loadWheelSegments());
     fetch("/api/wheel-segments?t=" + Date.now())
       .then((res) => res.json())
       .then((data) => {
-        if (data.segments && Array.isArray(data.segments) && data.segments.length > 0) {
+        if (Array.isArray(data.segments)) {
           setSegments(data.segments);
           try { localStorage.setItem(WHEEL_KEY, JSON.stringify(data.segments)); } catch {}
         }
       })
       .catch((err) => console.error("Error loading wheel segments:", err));
   }, []);
+
+  const triggerSave = async (next: WheelSegment[]) => {
+    setSavingStatus("جارٍ الحفظ على السيرفر...");
+    await saveWheelSegments(next);
+    setSavingStatus("تم الحفظ بنجاح ✓");
+    setTimeout(() => setSavingStatus(null), 2500);
+  };
 
   const save = () => {
     const label = newLabel.trim();
@@ -183,7 +199,7 @@ function WheelAdminSection() {
     }
 
     setSegments(next);
-    saveWheelSegments(next);
+    triggerSave(next);
     setNewLabel("");
     setNewProbability("10");
     setNewColor(WHEEL_COLORS[(next.length + 1) % WHEEL_COLORS.length]);
@@ -213,13 +229,21 @@ function WheelAdminSection() {
       setEditingIndex(editingIndex - 1);
     }
     setSegments(next);
-    saveWheelSegments(next);
+    triggerSave(next);
+  };
+
+  const clearAll = () => {
+    if (confirm("هل أنت متأكد من رغبتك في حذف وإفراغ جميع خيارات وجوائز الدولاب بالكامل؟")) {
+      setSegments([]);
+      triggerSave([]);
+      cancelEdit();
+    }
   };
 
   const restoreDefaults = () => {
     if (confirm("هل ترغب في استعادة جوائز وخيارات الدولاب الافتراضية بالكامل؟")) {
       setSegments(DEFAULT_WHEEL_SEGMENTS);
-      saveWheelSegments(DEFAULT_WHEEL_SEGMENTS);
+      triggerSave(DEFAULT_WHEEL_SEGMENTS);
       cancelEdit();
     }
   };
@@ -234,20 +258,38 @@ function WheelAdminSection() {
             🎡
           </div>
           <div>
-            <h2 style={{ fontFamily: "'Lalezar', serif" }} className="text-xl text-neutral-900 leading-tight">
-              إدارة دولاب الحظ
-            </h2>
-            <p className="text-xs text-slate-500">الخيارات تظهر للزوار في صفحة المتجر</p>
+            <div className="flex items-center gap-2">
+              <h2 style={{ fontFamily: "'Lalezar', serif" }} className="text-xl text-neutral-900 leading-tight">
+                إدارة دولاب الحظ
+              </h2>
+              {savingStatus && (
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${savingStatus.includes("✓") ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600 animate-pulse"}`}>
+                  {savingStatus}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500">الخيارات تظهر للزوار فوراً في صفحة المتجر</p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={restoreDefaults}
-          className="text-xs font-medium text-slate-600 hover:text-neutral-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-all"
-        >
-          🔄 استعادة الجوائز الافتراضية
-        </button>
+        <div className="flex items-center gap-2">
+          {segments.length > 0 && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+            >
+              🗑️ مسح الكل (إفراغ الدولاب)
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={restoreDefaults}
+            className="text-xs font-medium text-slate-600 hover:text-neutral-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+          >
+            🔄 استعادة الجوائز الافتراضية
+          </button>
+        </div>
       </div>
 
       {/* إضافة / تعديل خيار */}

@@ -2,13 +2,12 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
-export const revalidate = 300; // كاش 5 دقائق لحماية السيرفر
+export const dynamic = "force-dynamic";
 
-const cacheHeaders = {
-  "Cache-Control": "public, s-maxage=300, stale-while-revalidate=1200",
-};
 const noStoreHeaders = {
-  "Cache-Control": "no-store, no-cache, must-revalidate",
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  "Pragma": "no-cache",
+  "Expires": "0",
 };
 
 export async function GET() {
@@ -24,10 +23,9 @@ export async function GET() {
     }
 
     const segments = JSON.parse(data.title_ar);
-    const valid = Array.isArray(segments) && segments.length > 0;
     return NextResponse.json(
-      { segments: valid ? segments : [] },
-      { headers: valid ? cacheHeaders : noStoreHeaders }
+      { segments: Array.isArray(segments) ? segments : [] },
+      { headers: noStoreHeaders }
     );
   } catch {
     return NextResponse.json({ segments: [] }, { headers: noStoreHeaders });
