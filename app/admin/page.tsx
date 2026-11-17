@@ -104,24 +104,47 @@ const WHEEL_COLORS = [
 
 type WheelSegment = { label: string; color: string; probability?: number };
 
+const DEFAULT_WHEEL_SEGMENTS: WheelSegment[] = [
+  { label: "خصم 50%", color: "#e22400", probability: 0.02 },
+  { label: "حقيبة من اختيارك", color: "#FFD93D", probability: 0.01 },
+  { label: "خصم 20%", color: "#6BCB77", probability: 0.15 },
+  { label: "خصم 35%", color: "#4D96FF", probability: 0.1 },
+  { label: "حلق هدية على طلبيتك", color: "#FF922B", probability: 0.3 },
+  { label: "اسواره هدية على طلبيتك", color: "#CC5DE8", probability: 0.07 },
+  { label: "خاتم هدية على طلبيتك", color: "#20C997", probability: 0.07 },
+  { label: "ساعة رولكس من اختيارك", color: "#F06595", probability: 0.01 },
+  { label: "قسيمة شرائية 200 شيكل", color: "#A9E34B", probability: 0.03 },
+  { label: "قسيمة شرائية 20 شيكل", color: "#74C0FC", probability: 0.1 },
+  { label: "خصم 5%", color: "#FF6B6B", probability: 0.5 },
+  { label: "خصم 10%", color: "#FFD93D", probability: 0.5 },
+  { label: "عطر هدية على طلبيتك", color: "#6BCB77", probability: 0.03 },
+  { label: "قسيمة شرائية 50شيكل", color: "#4D96FF", probability: 0.1 },
+  { label: "توصيل مجاني", color: "#FF922B", probability: 0.1 },
+  { label: "طقم  هدية على طلبيتك", color: "#CC5DE8", probability: 0.03 },
+  { label: "حظً اوفر", color: "#20C997", probability: 0.3 },
+  { label: "ربحت 5 نقاط", color: "#FF6B6B", probability: 0.1 },
+  { label: "ربحت 2 نقطة", color: "#A9E34B", probability: 0.9 },
+  { label: "ربحت 50نقطة", color: "#74C0FC", probability: 0.01 },
+];
+
 function loadWheelSegments(): WheelSegment[] {
   try {
     const s = localStorage.getItem(WHEEL_KEY);
-    return s ? JSON.parse(s) : [];
-  } catch { return []; }
+    if (s) {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_WHEEL_SEGMENTS;
 }
 
-async function saveWheelSegments(segs: WheelSegment[]) {
+function saveWheelSegments(segs: WheelSegment[]) {
   try { localStorage.setItem(WHEEL_KEY, JSON.stringify(segs)); } catch { /* ignore */ }
-  const res = await fetch("/api/wheel-segments", {
+  fetch("/api/wheel-segments", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ segments: segs }),
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "فشل مزامنة الخيارات مع السيرفر");
-  }
+  }).catch((err) => console.error("Error syncing wheel segments to server:", err));
 }
 
 /* ─── Wheel Admin Section ─── */
@@ -130,14 +153,13 @@ function WheelAdminSection() {
   const [newLabel, setNewLabel] = useState("");
   const [newProbability, setNewProbability] = useState("10");
   const [newColor, setNewColor] = useState(WHEEL_COLORS[0]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
     setSegments(loadWheelSegments());
-    fetch(`/api/wheel-segments?admin=1&t=${Date.now()}`, { cache: "no-store" })
+    fetch("/api/wheel-segments")
       .then((res) => res.json())
       .then((data) => {
         if (data.segments && Array.isArray(data.segments) && data.segments.length > 0) {
@@ -148,49 +170,63 @@ function WheelAdminSection() {
       .catch((err) => console.error("Error loading wheel segments:", err));
   }, []);
 
-  const add = async () => {
+  const handleSave = () => {
     const label = newLabel.trim();
     if (!label) return;
     const probVal = parseFloat(newProbability);
     if (isNaN(probVal) || probVal < 0 || probVal > 100) return;
 
-    const prev = segments;
-    const next = [...segments, { label, color: newColor, probability: probVal / 100 }];
-    setSegments(next);
-    setIsSaving(true);
-    setFeedback(null);
+    if (editingIndex !== null && editingIndex >= 0 && editingIndex < segments.length) {
+      // تعديل خيار قائم
+      const next = [...segments];
+      next[editingIndex] = { label, color: newColor, probability: probVal / 100 };
+      setSegments(next);
+      saveWheelSegments(next);
+      setEditingIndex(null);
+    } else {
+      // إضافة خيار جديد
+      const next = [...segments, { label, color: newColor, probability: probVal / 100 }];
+      setSegments(next);
+      saveWheelSegments(next);
+    }
 
-    try {
-      await saveWheelSegments(next);
-      setNewLabel("");
-      setNewProbability("10");
-      setNewColor(WHEEL_COLORS[(next.length) % WHEEL_COLORS.length]);
-      setFeedback({ type: "success", text: "تمت إضافة الجائزة وحفظها بالدولاب بنجاح ✓" });
-      setTimeout(() => setFeedback(null), 3000);
-    } catch (err: any) {
-      setSegments(prev);
-      setFeedback({ type: "error", text: err.message || "حدث خطأ أثناء الحفظ" });
-    } finally {
-      setIsSaving(false);
+    setNewLabel("");
+    setNewProbability("10");
+    setNewColor(WHEEL_COLORS[(segments.length + 1) % WHEEL_COLORS.length]);
+  };
+
+  const startEdit = (idx: number) => {
+    const target = segments[idx];
+    if (!target) return;
+    setEditingIndex(idx);
+    setNewLabel(target.label);
+    setNewProbability(String(Math.round(((target.probability ?? 0.1) * 100) * 10) / 10));
+    setNewColor(target.color || WHEEL_COLORS[0]);
+  };
+
+  const cancelEdit = () => {
+    setEditingIndex(null);
+    setNewLabel("");
+    setNewProbability("10");
+    setNewColor(WHEEL_COLORS[0]);
+  };
+
+  const remove = (idx: number) => {
+    const next = segments.filter((_, i) => i !== idx);
+    setSegments(next);
+    saveWheelSegments(next);
+    if (editingIndex === idx) {
+      cancelEdit();
+    } else if (editingIndex !== null && editingIndex > idx) {
+      setEditingIndex(editingIndex - 1);
     }
   };
 
-  const remove = async (idx: number) => {
-    const prev = segments;
-    const next = segments.filter((_, i) => i !== idx);
-    setSegments(next);
-    setIsSaving(true);
-    setFeedback(null);
-
-    try {
-      await saveWheelSegments(next);
-      setFeedback({ type: "success", text: "تم حذف الجائزة وتحديث الدولاب فوراً ✓" });
-      setTimeout(() => setFeedback(null), 3000);
-    } catch (err: any) {
-      setSegments(prev);
-      setFeedback({ type: "error", text: err.message || "فشل الحذف من السيرفر، يرجى المحاولة ثانية" });
-    } finally {
-      setIsSaving(false);
+  const restoreDefaults = () => {
+    if (window.confirm("هل تريد استرجاع جميع خيارات الدولاب الافتراضية الـ 20؟")) {
+      setSegments(DEFAULT_WHEEL_SEGMENTS);
+      saveWheelSegments(DEFAULT_WHEEL_SEGMENTS);
+      cancelEdit();
     }
   };
 
@@ -198,7 +234,7 @@ function WheelAdminSection() {
 
   return (
     <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6" dir="rtl">
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0 text-xl">
             🎡
@@ -207,116 +243,151 @@ function WheelAdminSection() {
             <h2 style={{ fontFamily: "'Lalezar', serif" }} className="text-xl text-neutral-900 leading-tight">
               إدارة دولاب الحظ
             </h2>
-            <p className="text-xs text-slate-500">الخيارات تظهر للزوار في صفحة المتجر فوراً</p>
+            <p className="text-xs text-slate-500">الخيارات تظهر للزوار في صفحة المتجر</p>
           </div>
         </div>
-        {feedback && (
-          <div
-            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${
-              feedback.type === "success"
-                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                : "bg-rose-50 border-rose-200 text-rose-700"
-            }`}
-          >
-            {feedback.text}
-          </div>
-        )}
-      </div>
-
-      {/* إضافة خيار */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <input
-          type="text"
-          value={newLabel}
-          onChange={(e) => setNewLabel(e.target.value)}
-          placeholder="اسم الجائزة (مثال: خصم 5%)"
-          maxLength={25}
-          disabled={isSaving}
-          className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-400 transition-colors disabled:opacity-50"
-        />
-        
-        <div className="flex items-center gap-2">
-          {/* حقل الاحتمالية */}
-          <div className="relative flex-1 sm:w-28 flex items-center">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="any"
-              value={newProbability}
-              onChange={(e) => setNewProbability(e.target.value)}
-              placeholder="الاحتمالية"
-              disabled={isSaving}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-7 pr-3 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-400 transition-colors disabled:opacity-50"
-            />
-            <span className="absolute left-3 text-xs text-slate-400 font-bold">%</span>
-          </div>
-
-          {/* منتقي الألوان */}
-          <div className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50">
-            <span className="text-xs text-slate-400">اللون:</span>
-            <input
-              type="color"
-              value={newColor}
-              onChange={(e) => setNewColor(e.target.value)}
-              disabled={isSaving}
-              className="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent disabled:opacity-50"
-            />
-          </div>
-        </div>
-
         <button
           type="button"
-          onClick={add}
-          disabled={!newLabel.trim() || !newProbability.trim() || isSaving}
-          className="rounded-xl bg-neutral-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-neutral-700 disabled:opacity-40 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+          onClick={restoreDefaults}
+          className="self-start sm:self-auto px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
         >
-          {isSaving ? "جارٍ الحفظ..." : "+ إضافة"}
+          🔄 استرجاع الخيارات الافتراضية
         </button>
       </div>
 
-      {/* القائمة */}
+      {/* نموذج إضافة / تعديل خيار */}
+      <div className={`p-4 rounded-xl border mb-5 transition-all ${editingIndex !== null ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-bold text-neutral-700">
+            {editingIndex !== null ? `تعديل الجائزة رقم ${editingIndex + 1}` : "إضافة جائزة جديدة للدولاب"}
+          </span>
+          {editingIndex !== null && (
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline"
+            >
+              إلغاء التعديل
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            placeholder="اسم الجائزة (مثال: خصم 5% أو حلق هدية)"
+            maxLength={35}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-500 transition-colors"
+          />
+          
+          <div className="flex items-center gap-2">
+            {/* حقل الاحتمالية */}
+            <div className="relative flex-1 sm:w-28 flex items-center">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="any"
+                value={newProbability}
+                onChange={(e) => setNewProbability(e.target.value)}
+                placeholder="الاحتمالية"
+                className="w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-500 transition-colors"
+              />
+              <span className="absolute left-3 text-xs text-slate-400 font-bold">%</span>
+            </div>
+
+            {/* منتقي الألوان */}
+            <div className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-slate-200 bg-white">
+              <span className="text-xs text-slate-400">اللون:</span>
+              <input
+                type="color"
+                value={newColor}
+                onChange={(e) => setNewColor(e.target.value)}
+                className="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!newLabel.trim() || !newProbability.trim()}
+              className={`flex-1 sm:flex-none rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all active:scale-95 disabled:opacity-40 shadow-sm ${
+                editingIndex !== null ? 'bg-amber-600 hover:bg-amber-700' : 'bg-neutral-900 hover:bg-neutral-800'
+              }`}
+            >
+              {editingIndex !== null ? "حفظ التعديل" : "+ إضافة"}
+            </button>
+            {editingIndex !== null && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition"
+              >
+                إلغاء
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* قائمة الخيارات الحالية */}
       {segments.length === 0 ? (
         <div className="text-center py-8 rounded-xl border-2 border-dashed border-slate-200">
           <div className="text-3xl mb-2">🎡</div>
-          <p className="text-sm text-slate-400">لا توجد خيارات بعد</p>
+          <p className="text-sm text-slate-400 mb-3">لا توجد خيارات بعد</p>
+          <button
+            type="button"
+            onClick={restoreDefaults}
+            className="px-4 py-2 text-xs font-bold text-neutral-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+          >
+            تعبئة بالخيارات الافتراضية
+          </button>
         </div>
       ) : (
-        <ul className="space-y-2 max-h-72 overflow-y-auto pr-1">
+        <ul className="space-y-2 max-h-80 overflow-y-auto pr-1">
           {segments.map((seg, i) => (
             <li
-              key={i}
-              className="flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-200/80 px-3.5 py-2.5 hover:border-slate-300 transition-colors"
+              key={`${seg.label}-${i}`}
+              className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 transition ${
+                editingIndex === i
+                  ? 'border-amber-300 bg-amber-50/80 shadow-xs ring-1 ring-amber-300'
+                  : 'border-slate-200/80 bg-slate-50/60 hover:bg-slate-50'
+              }`}
             >
-              <span
-                className="h-5 w-5 rounded-full flex-shrink-0 border-2 border-white shadow-sm"
-                style={{ backgroundColor: seg.color }}
-              />
-              <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-neutral-900 truncate">{seg.label}</span>
-                <span className="font-mono text-xs font-semibold text-slate-600 bg-slate-200/70 px-2.5 py-0.5 rounded-md">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <span
+                  className="h-4 w-4 rounded-full flex-shrink-0 border border-white shadow-xs"
+                  style={{ backgroundColor: seg.color }}
+                />
+                <span className="text-sm font-medium text-neutral-900 truncate">
+                  {seg.label}
+                </span>
+                <span className="font-mono text-xs font-semibold text-slate-600 bg-slate-200/70 px-2 py-0.5 rounded-md flex-shrink-0">
                   {((seg.probability ?? 0) * 100).toFixed(1)}%
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                disabled={isSaving}
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-transparent hover:border-rose-200 disabled:opacity-30 active:scale-90"
-                title="حذف هذا الخيار نهائياً"
-                aria-label="حذف"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => startEdit(i)}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition shadow-xs"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
+                  تعديل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  className="px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl hover:bg-rose-100 transition shadow-xs"
+                  title="حذف هذا الخيار"
+                >
+                  حذف
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -332,7 +403,7 @@ function WheelAdminSection() {
                 {totalProbability.toFixed(1)}% 
                 {Math.abs(totalProbability - 100) > 0.01 && (
                   <span className="font-normal text-[10px] text-slate-400 block sm:inline sm:mr-1">
-                    (يفضل أن يكون المجموع 100%)
+                    (يُفضل أن يكون المجموع 100%)
                   </span>
                 )}
               </span>
