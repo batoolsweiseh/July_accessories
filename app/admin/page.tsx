@@ -18,6 +18,7 @@ import {
 import LoyaltyAdminSection from "@/components/LoyaltyAdminSection";
 import CustomersAdminSection from "@/components/CustomersAdminSection";
 import SectionsAdminSection, { SubcategoriesSettings } from "@/components/SectionsAdminSection";
+import PosSalesAdminSection from "@/components/PosSalesAdminSection";
 import { LoyaltyReward, PurchaseCode, CustomerUser } from "@/lib/loyalty";
 
 /* ─── Types ─── */
@@ -110,13 +111,17 @@ function loadWheelSegments(): WheelSegment[] {
   } catch { return []; }
 }
 
-function saveWheelSegments(segs: WheelSegment[]) {
+async function saveWheelSegments(segs: WheelSegment[]) {
   try { localStorage.setItem(WHEEL_KEY, JSON.stringify(segs)); } catch { /* ignore */ }
-  fetch("/api/wheel-segments", {
+  const res = await fetch("/api/wheel-segments", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ segments: segs }),
-  }).catch((err) => console.error("Error syncing wheel segments to server:", err));
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "فشل مزامنة الخيارات مع السيرفر");
+  }
 }
 
 /* ─── Wheel Admin Section ─── */
@@ -126,14 +131,16 @@ function WheelAdminSection() {
   const [newProbability, setNewProbability] = useState("10");
   const [newColor, setNewColor] = useState(WHEEL_COLORS[0]);
   const [mounted, setMounted] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
     setSegments(loadWheelSegments());
-    fetch("/api/wheel-segments")
+    fetch(`/api/wheel-segments?admin=1&t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
-        if (data.segments && Array.isArray(data.segments)) {
+        if (data.segments && Array.isArray(data.segments) && data.segments.length > 0) {
           setSegments(data.segments);
           try { localStorage.setItem(WHEEL_KEY, JSON.stringify(data.segments)); } catch {}
         }
@@ -141,40 +148,79 @@ function WheelAdminSection() {
       .catch((err) => console.error("Error loading wheel segments:", err));
   }, []);
 
-  const add = () => {
+  const add = async () => {
     const label = newLabel.trim();
     if (!label) return;
     const probVal = parseFloat(newProbability);
     if (isNaN(probVal) || probVal < 0 || probVal > 100) return;
 
+    const prev = segments;
     const next = [...segments, { label, color: newColor, probability: probVal / 100 }];
     setSegments(next);
-    saveWheelSegments(next);
-    setNewLabel("");
-    setNewProbability("10");
-    setNewColor(WHEEL_COLORS[(segments.length + 1) % WHEEL_COLORS.length]);
+    setIsSaving(true);
+    setFeedback(null);
+
+    try {
+      await saveWheelSegments(next);
+      setNewLabel("");
+      setNewProbability("10");
+      setNewColor(WHEEL_COLORS[(next.length) % WHEEL_COLORS.length]);
+      setFeedback({ type: "success", text: "تمت إضافة الجائزة وحفظها بالدولاب بنجاح ✓" });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err: any) {
+      setSegments(prev);
+      setFeedback({ type: "error", text: err.message || "حدث خطأ أثناء الحفظ" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const remove = (idx: number) => {
+  const remove = async (idx: number) => {
+    const prev = segments;
     const next = segments.filter((_, i) => i !== idx);
     setSegments(next);
-    saveWheelSegments(next);
+    setIsSaving(true);
+    setFeedback(null);
+
+    try {
+      await saveWheelSegments(next);
+      setFeedback({ type: "success", text: "تم حذف الجائزة وتحديث الدولاب فوراً ✓" });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err: any) {
+      setSegments(prev);
+      setFeedback({ type: "error", text: err.message || "فشل الحذف من السيرفر، يرجى المحاولة ثانية" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!mounted) return null;
 
   return (
     <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6" dir="rtl">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0 text-xl">
-          🎡
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0 text-xl">
+            🎡
+          </div>
+          <div>
+            <h2 style={{ fontFamily: "'Lalezar', serif" }} className="text-xl text-neutral-900 leading-tight">
+              إدارة دولاب الحظ
+            </h2>
+            <p className="text-xs text-slate-500">الخيارات تظهر للزوار في صفحة المتجر فوراً</p>
+          </div>
         </div>
-        <div>
-          <h2 style={{ fontFamily: "'Lalezar', serif" }} className="text-xl text-neutral-900 leading-tight">
-            إدارة دولاب الحظ
-          </h2>
-          <p className="text-xs text-slate-500">الخيارات تظهر للزوار في صفحة المتجر</p>
-        </div>
+        {feedback && (
+          <div
+            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${
+              feedback.type === "success"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : "bg-rose-50 border-rose-200 text-rose-700"
+            }`}
+          >
+            {feedback.text}
+          </div>
+        )}
       </div>
 
       {/* إضافة خيار */}
@@ -185,7 +231,8 @@ function WheelAdminSection() {
           onChange={(e) => setNewLabel(e.target.value)}
           placeholder="اسم الجائزة (مثال: خصم 5%)"
           maxLength={25}
-          className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-400 transition-colors"
+          disabled={isSaving}
+          className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-400 transition-colors disabled:opacity-50"
         />
         
         <div className="flex items-center gap-2">
@@ -199,7 +246,8 @@ function WheelAdminSection() {
               value={newProbability}
               onChange={(e) => setNewProbability(e.target.value)}
               placeholder="الاحتمالية"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-7 pr-3 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-400 transition-colors"
+              disabled={isSaving}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-7 pr-3 py-2.5 text-sm text-neutral-900 placeholder:text-slate-400 outline-none focus:border-neutral-400 transition-colors disabled:opacity-50"
             />
             <span className="absolute left-3 text-xs text-slate-400 font-bold">%</span>
           </div>
@@ -211,7 +259,8 @@ function WheelAdminSection() {
               type="color"
               value={newColor}
               onChange={(e) => setNewColor(e.target.value)}
-              className="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent"
+              disabled={isSaving}
+              className="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent disabled:opacity-50"
             />
           </div>
         </div>
@@ -219,10 +268,10 @@ function WheelAdminSection() {
         <button
           type="button"
           onClick={add}
-          disabled={!newLabel.trim() || !newProbability.trim()}
-          className="rounded-xl bg-neutral-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-neutral-700 disabled:opacity-40 transition-all active:scale-95"
+          disabled={!newLabel.trim() || !newProbability.trim() || isSaving}
+          className="rounded-xl bg-neutral-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-neutral-700 disabled:opacity-40 transition-all active:scale-95 flex items-center justify-center gap-1.5"
         >
-          + إضافة
+          {isSaving ? "جارٍ الحفظ..." : "+ إضافة"}
         </button>
       </div>
 
@@ -233,26 +282,40 @@ function WheelAdminSection() {
           <p className="text-sm text-slate-400">لا توجد خيارات بعد</p>
         </div>
       ) : (
-        <ul className="space-y-2 max-h-64 overflow-y-auto">
+        <ul className="space-y-2 max-h-72 overflow-y-auto pr-1">
           {segments.map((seg, i) => (
-            <li key={i} className="flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+            <li
+              key={i}
+              className="flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-200/80 px-3.5 py-2.5 hover:border-slate-300 transition-colors"
+            >
               <span
-                className="h-4 w-4 rounded-full flex-shrink-0 border border-white shadow"
+                className="h-5 w-5 rounded-full flex-shrink-0 border-2 border-white shadow-sm"
                 style={{ backgroundColor: seg.color }}
               />
               <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-neutral-900 truncate">{seg.label}</span>
-                <span className="font-mono text-xs font-semibold text-slate-500 bg-slate-200/50 px-2 py-0.5 rounded-md">
+                <span className="font-mono text-xs font-semibold text-slate-600 bg-slate-200/70 px-2.5 py-0.5 rounded-md">
                   {((seg.probability ?? 0) * 100).toFixed(1)}%
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="text-slate-300 hover:text-rose-500 transition-colors text-lg leading-none"
+                disabled={isSaving}
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-transparent hover:border-rose-200 disabled:opacity-30 active:scale-90"
+                title="حذف هذا الخيار نهائياً"
                 aria-label="حذف"
               >
-                ×
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
               </button>
             </li>
           ))}
@@ -567,7 +630,7 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<"products" | "orders" | "sections" | "users_points" | "loyalty">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "orders" | "pos_sales" | "sections" | "users_points" | "loyalty">("products");
   const [subcategoriesSettings, setSubcategoriesSettings] = useState<SubcategoriesSettings>({
     hidden_ids: [],
     hidden_categories: [],
@@ -809,6 +872,14 @@ export default function AdminPage() {
   };
 
   /* ── Computed / Filtered / Paginated ── */
+  // Separate regular customer orders from POS orders
+  const regularOrders = orders.filter(
+    (o) => !o.customer_name?.startsWith("[POS]")
+  );
+  const posOrders = orders.filter(
+    (o) => typeof o.customer_name === "string" && o.customer_name.startsWith("[POS]")
+  );
+
   const filteredProducts = products.filter((p) => {
     const matchName = p.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchCat = filterCategory ? p.category_slug === filterCategory : true;
@@ -947,7 +1018,18 @@ export default function AdminPage() {
                     : "border-transparent text-slate-400 hover:text-slate-600"
                 }`}
               >
-                🛍️ إدارة الطلبات ({orders.length})
+                🛍️ إدارة الطلبات ({regularOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("pos_sales")}
+                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
+                  activeTab === "pos_sales"
+                    ? "border-violet-600 text-violet-700"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                🧾 مبيعات الكاشير ({posOrders.length})
               </button>
               <button
                 type="button"
@@ -1574,7 +1656,9 @@ export default function AdminPage() {
             </div>
           </>
         ) : activeTab === "orders" ? (
-          <OrdersAdminSection orders={orders} onUpdateStatus={handleUpdateStatus} />
+          <OrdersAdminSection orders={regularOrders} onUpdateStatus={handleUpdateStatus} />
+        ) : activeTab === "pos_sales" ? (
+          <PosSalesAdminSection orders={orders} />
         ) : activeTab === "sections" ? (
           <SectionsAdminSection
             categories={categories}
