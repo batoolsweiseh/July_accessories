@@ -6,6 +6,9 @@ export const revalidate = 300; // كاش 5 دقائق لحماية السيرف�
 const cacheHeaders = {
   "Cache-Control": "public, s-maxage=300, stale-while-revalidate=1200",
 };
+const noStoreHeaders = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+};
 
 export async function GET() {
   try {
@@ -16,13 +19,17 @@ export async function GET() {
       .single();
 
     if (error || !data || !data.title_ar) {
-      return NextResponse.json({ segments: [] }, { headers: cacheHeaders });
+      return NextResponse.json({ segments: [] }, { headers: noStoreHeaders });
     }
 
     const segments = JSON.parse(data.title_ar);
-    return NextResponse.json({ segments: Array.isArray(segments) ? segments : [] }, { headers: cacheHeaders });
+    const valid = Array.isArray(segments) && segments.length > 0;
+    return NextResponse.json(
+      { segments: valid ? segments : [] },
+      { headers: valid ? cacheHeaders : noStoreHeaders }
+    );
   } catch {
-    return NextResponse.json({ segments: [] }, { headers: cacheHeaders });
+    return NextResponse.json({ segments: [] }, { headers: noStoreHeaders });
   }
 }
 

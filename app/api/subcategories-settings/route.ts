@@ -7,6 +7,9 @@ export const revalidate = 120; // كاش لمدة دقيقتين لتخفيف ا
 const cacheHeaders = {
   "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
 };
+const noStoreHeaders = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+};
 
 export interface SubcategoriesSettings {
   hidden_ids: string[];
@@ -95,15 +98,18 @@ export async function GET() {
         visible_subcategories_by_category: visibleSubcategoriesByCategory,
         subcategories: subcategories,
       },
-      { headers: cacheHeaders }
+      { headers: subcategories.length > 0 ? cacheHeaders : noStoreHeaders }
     );
   } catch (err: any) {
     console.error("Error in GET /api/subcategories-settings:", err);
-    return NextResponse.json({
-      ...DEFAULT_SETTINGS,
-      visible_subcategories_by_category: {},
-      subcategories: [],
-    });
+    return NextResponse.json(
+      {
+        ...DEFAULT_SETTINGS,
+        visible_subcategories_by_category: {},
+        subcategories: [],
+      },
+      { headers: noStoreHeaders }
+    );
   }
 }
 
