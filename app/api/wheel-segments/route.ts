@@ -1,13 +1,16 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300; // كاش 5 دقائق لحماية السيرفر
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const isAdmin = searchParams.get("admin") === "1";
+const cacheHeaders = {
+  "Cache-Control": "public, s-maxage=300, stale-while-revalidate=1200",
+};
+const noStoreHeaders = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+};
 
+export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("categories")
@@ -16,21 +19,17 @@ export async function GET(request: Request) {
       .single();
 
     if (error || !data || !data.title_ar) {
-      return NextResponse.json({ segments: [] }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ segments: [] }, { headers: noStoreHeaders });
     }
 
     const segments = JSON.parse(data.title_ar);
     const valid = Array.isArray(segments) && segments.length > 0;
-    const headers = isAdmin
-      ? { "Cache-Control": "no-store, no-cache, must-revalidate" }
-      : { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" };
-
     return NextResponse.json(
       { segments: valid ? segments : [] },
-      { headers: valid ? headers : { "Cache-Control": "no-store" } }
+      { headers: valid ? cacheHeaders : noStoreHeaders }
     );
   } catch {
-    return NextResponse.json({ segments: [] }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ segments: [] }, { headers: noStoreHeaders });
   }
 }
 
@@ -53,11 +52,6 @@ export async function POST(request: Request) {
     if (error) {
       throw error;
     }
-
-    try {
-      revalidatePath("/api/wheel-segments");
-      revalidatePath("/");
-    } catch {}
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
