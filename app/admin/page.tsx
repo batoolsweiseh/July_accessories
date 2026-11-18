@@ -116,7 +116,11 @@ function saveWheelSegments(segs: WheelSegment[]) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ segments: segs }),
-  }).catch((err) => console.error("Error syncing wheel segments to server:", err));
+  })
+    .then(() => {
+      window.dispatchEvent(new Event("july-wheel-updated"));
+    })
+    .catch((err) => console.error("Error syncing wheel segments to server:", err));
 }
 
 /* ─── Wheel Admin Section ─── */
@@ -130,7 +134,7 @@ function WheelAdminSection() {
   useEffect(() => {
     setMounted(true);
     setSegments(loadWheelSegments());
-    fetch("/api/wheel-segments")
+    fetch("/api/wheel-segments?t=" + Date.now(), { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.segments && Array.isArray(data.segments)) {
