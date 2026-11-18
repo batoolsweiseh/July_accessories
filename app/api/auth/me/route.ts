@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 import { getUserLoyalty } from "@/lib/loyalty";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get("customer_session")?.value;
