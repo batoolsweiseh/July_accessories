@@ -1,13 +1,13 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300; // كاش 5 دقائق لحماية السيرفر
 
+const cacheHeaders = {
+  "Cache-Control": "public, s-maxage=300, stale-while-revalidate=1200",
+};
 const noStoreHeaders = {
-  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-  "Pragma": "no-cache",
-  "Expires": "0",
+  "Cache-Control": "no-store, no-cache, must-revalidate",
 };
 
 export async function GET() {
@@ -23,9 +23,10 @@ export async function GET() {
     }
 
     const segments = JSON.parse(data.title_ar);
+    const valid = Array.isArray(segments) && segments.length > 0;
     return NextResponse.json(
-      { segments: Array.isArray(segments) ? segments : [] },
-      { headers: noStoreHeaders }
+      { segments: valid ? segments : [] },
+      { headers: valid ? cacheHeaders : noStoreHeaders }
     );
   } catch {
     return NextResponse.json({ segments: [] }, { headers: noStoreHeaders });
@@ -51,11 +52,6 @@ export async function POST(request: Request) {
     if (error) {
       throw error;
     }
-
-    try {
-      revalidatePath("/");
-      revalidatePath("/api/wheel-segments");
-    } catch { }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -22,15 +22,38 @@ const COOLDOWN_KEY = "july-wheel-last-spin";
 const PRIZE_KEY = "july-wheel-last-prize";
 const COOLDOWN_TIME = 48 * 60 * 60 * 1000; // 48 hours
 
+const DEFAULT_SEGMENTS: Segment[] = [
+  { label: "خصم 50%", color: "#e22400", probability: 0.02 },
+  { label: "حقيبة من اختيارك", color: "#FFD93D", probability: 0.01 },
+  { label: "خصم 20%", color: "#6BCB77", probability: 0.15 },
+  { label: "خصم 35%", color: "#4D96FF", probability: 0.1 },
+  { label: "حلق هدية على طلبيتك", color: "#FF922B", probability: 0.3 },
+  { label: "اسواره هدية على طلبيتك", color: "#CC5DE8", probability: 0.07 },
+  { label: "خاتم هدية على طلبيتك", color: "#20C997", probability: 0.07 },
+  { label: "ساعة رولكس من اختيارك", color: "#F06595", probability: 0.01 },
+  { label: "قسيمة شرائية 200 شيكل", color: "#A9E34B", probability: 0.03 },
+  { label: "قسيمة شرائية 20 شيكل", color: "#74C0FC", probability: 0.1 },
+  { label: "خصم 5%", color: "#FF6B6B", probability: 0.5 },
+  { label: "خصم 10%", color: "#FFD93D", probability: 0.5 },
+  { label: "عطر هدية على طلبيتك", color: "#6BCB77", probability: 0.03 },
+  { label: "قسيمة شرائية 50شيكل", color: "#4D96FF", probability: 0.1 },
+  { label: "توصيل مجاني", color: "#FF922B", probability: 0.1 },
+  { label: "طقم  هدية على طلبيتك", color: "#CC5DE8", probability: 0.03 },
+  { label: "حظً اوفر", color: "#20C997", probability: 0.3 },
+  { label: "ربحت 5 نقاط", color: "#FF6B6B", probability: 0.1 },
+  { label: "ربحت 2 نقطة", color: "#A9E34B", probability: 0.9 },
+  { label: "ربحت 50نقطة", color: "#74C0FC", probability: 0.01 },
+];
+
 function loadSegments(): Segment[] {
   try {
     const s = localStorage.getItem(STORAGE_KEY);
     if (s) {
       const parsed = JSON.parse(s);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-  } catch { }
-  return [];
+  } catch {}
+  return DEFAULT_SEGMENTS;
 }
 
 function getContrastColor(hexColor: string): string {
@@ -87,11 +110,11 @@ function drawWheel(canvas: HTMLCanvasElement, segments: Segment[], rotation: num
     ctx.textBaseline = "middle";
     const textColor = seg.textColor || getContrastColor(seg.color);
     ctx.fillStyle = textColor;
-
+    
     // حجم خط متوازن ومناسب لعدد الخيارات
     const fontSize = Math.max(13, Math.min(18, Math.floor(380 / segments.length)));
     ctx.font = `bold ${fontSize}px 'IBM Plex Sans Arabic', 'Lalezar', sans-serif`;
-
+    
     if (textColor === "#ffffff") {
       ctx.shadowColor = "rgba(0,0,0,0.4)";
       ctx.shadowBlur = 4;
@@ -141,22 +164,17 @@ export default function LuckyWheel() {
     setMounted(true);
     setSegments(loadSegments());
 
-    const loadFromServer = () => {
-      fetch("/api/wheel-segments?t=" + Date.now(), { cache: "no-store" })
-        .then((res) => res.json())
-        .then((data) => {
-          if (Array.isArray(data.segments)) {
-            setSegments(data.segments);
-            try {
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(data.segments));
-            } catch { }
-          }
-        })
-        .catch((err) => console.error("Error loading wheel segments from server:", err));
-    };
-
-    loadFromServer();
-    window.addEventListener("july-wheel-updated", loadFromServer);
+    fetch("/api/wheel-segments")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.segments && Array.isArray(data.segments) && data.segments.length > 0) {
+          setSegments(data.segments);
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data.segments));
+          } catch {}
+        }
+      })
+      .catch((err) => console.error("Error loading wheel segments from server:", err));
 
     const lastSpin = localStorage.getItem(COOLDOWN_KEY);
     const savedPrize = localStorage.getItem(PRIZE_KEY);
@@ -177,10 +195,6 @@ export default function LuckyWheel() {
         }
       }
     }
-
-    return () => {
-      window.removeEventListener("july-wheel-updated", loadFromServer);
-    };
   }, []);
 
   /* فحص دوري لانتهاء الكول داون */
@@ -199,7 +213,7 @@ export default function LuckyWheel() {
         try {
           localStorage.removeItem(COOLDOWN_KEY);
           localStorage.removeItem(PRIZE_KEY);
-        } catch { }
+        } catch {}
       }
     };
 
@@ -275,7 +289,7 @@ export default function LuckyWheel() {
         setLastPrize(prizeName);
         try {
           localStorage.setItem(PRIZE_KEY, prizeName);
-        } catch { }
+        } catch {}
         setShowResult(true);
         setSpinning(false);
       }
@@ -356,10 +370,11 @@ export default function LuckyWheel() {
               type="button"
               onClick={spin}
               disabled={spinning || segments.length < 2 || isCooldownActive}
-              className={`rounded-2xl px-10 py-4 text-base font-bold tracking-wide shadow-xl transition-all duration-200 ${isCooldownActive
+              className={`rounded-2xl px-10 py-4 text-base font-bold tracking-wide shadow-xl transition-all duration-200 ${
+                isCooldownActive
                   ? "bg-black text-white cursor-default border border-white/10 shadow-lg"
                   : "bg-black text-white hover:bg-neutral-800 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                }`}
+              }`}
             >
               {spinning ? (
                 <span className="flex items-center gap-2">
