@@ -9,23 +9,23 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-    if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/pos")) {
-      const session = request.cookies.get("admin_session");
-      const adminPassword = process.env.ADMIN_PASSWORD || "July2026";
+  if (url.pathname.startsWith("/admin")) {
+    const session = request.cookies.get("admin_session");
+    const adminPassword = process.env.ADMIN_PASSWORD || "July2026";
 
-      if (session?.value === adminPassword) {
-        return NextResponse.next();
-      }
-
-      // Not authenticated — redirect to login
-      const loginUrl = new URL("/admin/login", request.url);
-      loginUrl.searchParams.set("from", url.pathname);
-      return NextResponse.redirect(loginUrl);
+    if (session?.value === adminPassword) {
+      return NextResponse.next();
     }
 
-    return NextResponse.next();
+    // Not authenticated — redirect to login
+    const loginUrl = new URL("/admin/login", request.url);
+    loginUrl.searchParams.set("from", url.pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  export const config = {
-    matcher: ["/admin/:path*", "/pos/:path*"],
-  };
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/admin/:path*"],
+};
