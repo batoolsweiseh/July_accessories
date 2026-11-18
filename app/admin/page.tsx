@@ -18,7 +18,6 @@ import {
 import LoyaltyAdminSection from "@/components/LoyaltyAdminSection";
 import CustomersAdminSection from "@/components/CustomersAdminSection";
 import SectionsAdminSection, { SubcategoriesSettings } from "@/components/SectionsAdminSection";
-import PosSalesAdminSection from "@/components/PosSalesAdminSection";
 import { LoyaltyReward, PurchaseCode, CustomerUser } from "@/lib/loyalty";
 
 /* ─── Types ─── */
@@ -568,7 +567,7 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<"products" | "orders" | "pos_sales" | "sections" | "users_points" | "loyalty">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "orders" | "sections" | "users_points" | "loyalty">("products");
   const [subcategoriesSettings, setSubcategoriesSettings] = useState<SubcategoriesSettings>({
     hidden_ids: [],
     hidden_categories: [],
@@ -814,10 +813,6 @@ export default function AdminPage() {
   const regularOrders = orders.filter(
     (o) => !o.customer_name?.startsWith("[POS]")
   );
-  const posOrders = orders.filter(
-    (o) => typeof o.customer_name === "string" && o.customer_name.startsWith("[POS]")
-  );
-
   const filteredProducts = products.filter((p) => {
     const matchName = p.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchCat = filterCategory ? p.category_slug === filterCategory : true;
@@ -957,17 +952,6 @@ export default function AdminPage() {
                 }`}
               >
                 🛍️ إدارة الطلبات ({regularOrders.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("pos_sales")}
-                className={`py-3 px-6 text-sm font-bold border-b-2 transition-all ${
-                  activeTab === "pos_sales"
-                    ? "border-violet-600 text-violet-700"
-                    : "border-transparent text-slate-400 hover:text-slate-600"
-                }`}
-              >
-                🧾 مبيعات الكاشير ({posOrders.length})
               </button>
               <button
                 type="button"
@@ -1595,8 +1579,6 @@ export default function AdminPage() {
           </>
         ) : activeTab === "orders" ? (
           <OrdersAdminSection orders={regularOrders} onUpdateStatus={handleUpdateStatus} />
-        ) : activeTab === "pos_sales" ? (
-          <PosSalesAdminSection orders={orders} />
         ) : activeTab === "sections" ? (
           <SectionsAdminSection
             categories={categories}
