@@ -9,12 +9,18 @@ export async function fetchAdminData() {
     const [categoriesRes, subcategoriesRes, productsRes] = await Promise.all([
       supabaseAdmin.from("categories").select("*").order("title_ar"),
       supabaseAdmin.from("subcategories").select("*").order("title_ar"),
-      supabaseAdmin.from("products").select("*, subcategories(title_ar)").order("created_at", { ascending: false }),
+      supabaseAdmin.from("products").select("*").order("created_at", { ascending: false }),
     ]);
 
     if (categoriesRes.error) throw categoriesRes.error;
     if (subcategoriesRes.error) throw subcategoriesRes.error;
     if (productsRes.error) throw productsRes.error;
+
+    const subcategoryMap = new Map((subcategoriesRes.data || []).map((s: any) => [s.id, { title_ar: s.title_ar }]));
+    const products = (productsRes.data || []).map((p: any) => ({
+      ...p,
+      subcategories: p.subcategory_id ? (subcategoryMap.get(p.subcategory_id) || null) : null,
+    }));
 
     const categoryOrder = ["accessories", "sets", "bags", "watches"];
     let subcategoriesSettings = { hidden_ids: [] as string[], hidden_categories: [] as string[], auto_hide_empty: false };
@@ -42,7 +48,7 @@ export async function fetchAdminData() {
       success: true,
       categories: sortedCategories,
       subcategories: subcategoriesRes.data || [],
-      products: productsRes.data || [],
+      products,
       subcategoriesSettings,
     };
   } catch (error: any) {

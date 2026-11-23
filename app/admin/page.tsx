@@ -1419,6 +1419,7 @@ export default function AdminPage() {
                                         alt={product.name}
                                         className="w-full h-full object-cover"
                                         loading="lazy"
+                                        onError={(e) => { (e.target as HTMLImageElement).src = "/product-placeholder.png"; }}
                                       />
                                     ) : (
                                       <i className="fa-regular fa-image text-slate-300" />
