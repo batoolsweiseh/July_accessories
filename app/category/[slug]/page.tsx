@@ -4,6 +4,7 @@ import { parseProductPieces } from "@/lib/productVariants";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CategoryClient from "./CategoryClient";
+import { getProxiedImageUrl } from "@/lib/imageUrl";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -196,7 +197,7 @@ export default async function CategoryPage({
       name: p.name,
       price: Number(p.price),
       subcategory: subcategoryTitle,
-      image: p.image_url || "/product-placeholder.png",
+      image: getProxiedImageUrl(p.image_url),
       isFeatured: !!p.is_featured,
       inStock: p.in_stock !== false,
       isNew,

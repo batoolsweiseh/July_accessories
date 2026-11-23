@@ -6,6 +6,7 @@ import { useCart } from "@/lib/useCart";
 import ImageLightbox from "@/components/ImageLightbox";
 import ProductQuickViewModal from "@/components/ProductQuickViewModal";
 import { parseProductPieces, ProductPiece } from "@/lib/productVariants";
+import { getProxiedImageUrl } from "@/lib/imageUrl";
 
 /* ── أنواع ── */
 type Product = {
@@ -475,15 +476,24 @@ export default function ProductSlider() {
 
   useEffect(() => {
     // 1. قراءة الكاش المحلي فوراً لتظهر المنتجات بلحظة واحدة بدون انتظار الشبكة
+    // نتحقق من الإصدار لمسح الكاش القديم (من المشروع القديم)
+    const CACHE_VERSION = "v2-newproject";
     try {
-      const cached = window.localStorage.getItem("july-slider-cache");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed.accessories) && parsed.accessories.length > 0) setAccessories(parsed.accessories);
-        if (Array.isArray(parsed.bags) && parsed.bags.length > 0) setBags(parsed.bags);
-        if (Array.isArray(parsed.sets) && parsed.sets.length > 0) setSets(parsed.sets);
-        if (Array.isArray(parsed.watches) && parsed.watches.length > 0) setWatches(parsed.watches);
-        setLoading(false);
+      const cacheVersion = window.localStorage.getItem("july-slider-cache-version");
+      if (cacheVersion !== CACHE_VERSION) {
+        // مسح الكاش القديم من المشروع السابق
+        window.localStorage.removeItem("july-slider-cache");
+        window.localStorage.setItem("july-slider-cache-version", CACHE_VERSION);
+      } else {
+        const cached = window.localStorage.getItem("july-slider-cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.accessories) && parsed.accessories.length > 0) setAccessories(parsed.accessories);
+          if (Array.isArray(parsed.bags) && parsed.bags.length > 0) setBags(parsed.bags);
+          if (Array.isArray(parsed.sets) && parsed.sets.length > 0) setSets(parsed.sets);
+          if (Array.isArray(parsed.watches) && parsed.watches.length > 0) setWatches(parsed.watches);
+          setLoading(false);
+        }
       }
     } catch {
       /* ignore */
@@ -507,7 +517,7 @@ export default function ProductSlider() {
             name: p.name,
             price: String(p.price) + " ₪",
             category: p.category_slug,
-            image: p.image_url || "/product-placeholder.png",
+            image: getProxiedImageUrl(p.image_url),
             isFeatured: !!p.is_featured,
             inStock: p.in_stock ?? true,
             isNew,

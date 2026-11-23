@@ -6,6 +6,7 @@ import Link from "next/link";
 import Logo from "./Logo";
 import { CartIcon } from "./CartDrawer";
 import { useRouter } from "next/navigation";
+import { getProxiedImageUrl } from "@/lib/imageUrl";
 
 /* ─── بيانات الميجا منيو ─────────────────────────────────── */
 type NavCategory = {
@@ -249,7 +250,7 @@ export default function Header() {
               category: p.category_slug,
               isNew: p.is_featured,
               desc: p.description,
-              image: p.image_url,
+              image: getProxiedImageUrl(p.image_url),
             }))
           );
         }

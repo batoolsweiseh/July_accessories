@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import ImageCropperModal from "@/components/ImageCropperModal";
 import { parseProductPieces, cleanDescriptionTags, ProductPiece } from "@/lib/productVariants";
+import { getProxiedImageUrl } from "@/lib/imageUrl";
 import {
   fetchAdminData,
   createProduct,
@@ -715,7 +716,7 @@ export default function AdminPage() {
     setHasColors(rawDesc.includes("[tag:colors]"));
     setPieces(parseProductPieces(rawDesc));
     setImageFile(null);
-    setImagePreviewUrl(product.image_url || null);
+    setImagePreviewUrl(product.image_url ? getProxiedImageUrl(product.image_url) : null);
     if (fileInputRef.current) fileInputRef.current.value = "";
 
     // Scroll form into view on mobile
@@ -1415,7 +1416,7 @@ export default function AdminPage() {
                                     {product.image_url ? (
                                       // eslint-disable-next-line @next/next/no-img-element
                                       <img
-                                        src={product.image_url}
+                                        src={getProxiedImageUrl(product.image_url)}
                                         alt={product.name}
                                         className="w-full h-full object-cover"
                                         loading="lazy"

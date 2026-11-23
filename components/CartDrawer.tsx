@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useCart, CartItem } from "@/lib/useCart";
 import { createCustomerOrder } from "@/app/admin/actions";
+import { getProxiedImageUrl } from "@/lib/imageUrl";
 
 /* ─── بيانات المناطق وسعر التوصيل ─── */
 const REGIONS = {
@@ -579,7 +580,7 @@ function CartItemRow({
   onRemove: () => void;
   loading: boolean;
 }) {
-  const [imgSrc, setImgSrc] = useState(item.product.image_url || "/product-placeholder.png");
+  const [imgSrc, setImgSrc] = useState(getProxiedImageUrl(item.product.image_url));
 
   return (
     <li className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm">
