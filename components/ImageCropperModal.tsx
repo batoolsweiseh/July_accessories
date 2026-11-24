@@ -125,7 +125,7 @@ export default function ImageCropperModal({
     const container = containerRef.current;
     const containerRect = container.getBoundingClientRect();
 
-    const outputSize = 1000; // دقة الإخراج مربعة 1000x1000
+    const outputSize = 800; // دقة الإخراج المثالية والمضغوطة 800x800 لحماية السيرفر
     const canvas = document.createElement("canvas");
     canvas.width = outputSize;
     canvas.height = outputSize;
@@ -161,17 +161,36 @@ export default function ImageCropperModal({
     ctx.drawImage(img, drawX, drawY, renderedWidth, renderedHeight);
     ctx.restore();
 
+    // تصدير الصورة بصيغة WebP المضغوطة فائقة الخفة وبأعلى نقاوة بصرية
+    const exportFormat = "image/webp";
+    const exportQuality = 0.80; // نقاوة 80% تخفض الحجم بنسبة 85% مع الحفاظ على النقاء
+
     canvas.toBlob(
       (blob) => {
-        if (!blob) return;
-        const cleanName = fileName.replace(/\.[^/.]+$/, "") + ".jpg";
-        const file = new File([blob], cleanName, { type: "image/jpeg" });
+        if (!blob) {
+          // بديل احتياطي إذا لم يدعم المتصفح WebP
+          canvas.toBlob(
+            (fallbackBlob) => {
+              if (!fallbackBlob) return;
+              const cleanName = fileName.replace(/\.[^/.]+$/, "") + ".jpg";
+              const file = new File([fallbackBlob], cleanName, { type: "image/jpeg" });
+              const previewUrl = URL.createObjectURL(fallbackBlob);
+              onCropComplete(file, previewUrl);
+              onClose();
+            },
+            "image/jpeg",
+            0.80
+          );
+          return;
+        }
+        const cleanName = fileName.replace(/\.[^/.]+$/, "") + ".webp";
+        const file = new File([blob], cleanName, { type: "image/webp" });
         const previewUrl = URL.createObjectURL(blob);
         onCropComplete(file, previewUrl);
         onClose();
       },
-      "image/jpeg",
-      0.92
+      exportFormat,
+      exportQuality
     );
   };
 

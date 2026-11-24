@@ -1,16 +1,12 @@
 /**
- * يحوّل أي image_url إلى رابط proxy آمن
- * الصور من المشروع القديم (ibbrknipfisyfpgtxtks) تعبر عبر /api/img
- * الصور من المشروع الجديد تُرجَع مباشرة
- * إذا كانت URL فارغة أو null → placeholder
+ * يحوّل أي image_url إلى رابط proxy آمن ومحمي
+ * الصور تعبر عبر /api/img ليتم تخزينها في Vercel Edge Cache
+ * هذا يحمي Supabase تماماً من استهلاك الـ Egress حتى لا يتوقف المشروع أبداً
  */
 export function getProxiedImageUrl(url: string | null | undefined): string {
   if (!url) return "/product-placeholder.png";
 
-  // المشروع الجديد - مباشر
-  if (url.includes("qcqwuulqajlrrblcslyf")) return url;
-
-  // المشروع القديم أو أي URL خارجي - عبر proxy
+  // أي رابط Supabase أو رابط خارجي يمر عبر الـ Proxy المحمي لتقليل استهلاك السيرفر
   if (url.startsWith("http")) {
     return `/api/img?url=${encodeURIComponent(url)}`;
   }

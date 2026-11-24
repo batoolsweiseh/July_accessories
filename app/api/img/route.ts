@@ -17,17 +17,13 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL(PLACEHOLDER_REDIRECT, request.url));
   }
 
-  // إذا كانت الصورة من المشروع الجديد، أرجعها مباشرة
-  if (imageUrl.includes("qcqwuulqajlrrblcslyf")) {
-    return NextResponse.redirect(imageUrl);
-  }
-
+  // نجلب الصورة ونخزنها مؤقتاً في Vercel Edge Cache لحماية Supabase من استهلاك الـ Egress
   try {
     const res = await fetch(imageUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0",
       },
-      // cache الصور لمدة 24 ساعة
+      // cache الصور في Vercel CDN لتقليل الضغط على سوبابيس
       next: { revalidate: 86400 },
     });
 
